@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { currentSeason, genreLabel, GENRES, list, type ListQuery, type Media } from "./anilist";
 import { Dock, Sidebar, TopBar, type ViewKind } from "./components/Chrome";
 import { Details, Empty, Hero, NowWatching, PosterGrid, SectionTitle, WideRow, type Now } from "./components/Media";
-import { AnimeCursor } from "./components/Cursor";
+import { AnimeCursor, type CursorKind, type CustomCursor } from "./components/Cursor";
 import { Picker, type PickTarget } from "./components/Picker";
 import { SettingsView } from "./components/Settings";
 import * as discord from "./discord";
@@ -29,6 +29,10 @@ export default function App() {
   const [sources, setSources] = useStored<Source[]>("sources", []);
   const [prefs, setPrefs] = useStored<Prefs>("prefs", DEFAULT_PREFS);
   const [look, setLook] = useStored<Look>("look", DEFAULT_LOOK);
+  const [customCursors, setCustomCursors] = useStored<CustomCursor[]>("cursors", []);
+  const cursorImage = look.cursor.startsWith("custom:")
+    ? customCursors.find((c) => `custom:${c.id}` === look.cursor)?.src ?? null
+    : null;
   const [pick, setPick] = useState<PickTarget | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -263,6 +267,8 @@ export default function App() {
           onPrefs={setPrefs}
           look={look}
           onLook={setLook}
+          customCursors={customCursors}
+          onCustomCursors={setCustomCursors}
           onDisconnect={() => {
             discord.disconnect();
             setDstatus("off");
@@ -329,7 +335,7 @@ export default function App() {
         </main>
       </div>
       <Dock view={view.kind} onView={(k) => go({ kind: k })} />
-      <AnimeCursor kind={look.cursor} size={look.cursorSize} />
+      <AnimeCursor kind={look.cursor as CursorKind} size={look.cursorSize} image={cursorImage} />
       {pick && (
         <Picker
           target={pick}

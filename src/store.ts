@@ -49,7 +49,8 @@ export type DiscordSettings = { enabled: boolean; clientId: string };
 
 /** Look & feel: animated cursor and decorative effects. */
 export type Look = {
-  cursor: "system" | "neko" | "kitsune" | "mochi";
+  /** "system", a built-in character or "custom:<id>" */
+  cursor: string;
   cursorSize: "s" | "m" | "l";
   /** petals, Ken Burns zoom */
   effects: boolean;

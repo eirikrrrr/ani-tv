@@ -6,10 +6,17 @@
 
 import { useEffect, useRef, type ComponentType } from "react";
 
-export type CursorKind = "system" | "neko" | "kitsune" | "mochi";
+export type BuiltinCursor = "neko" | "kitsune" | "mochi";
+/** "system", a built-in character, or "custom:<id>" (an image the user added) */
+export type CursorKind = "system" | BuiltinCursor | `custom:${string}`;
+
+/** An image the user added (GIF/APNG/WebP/PNG), kept only on this computer. */
+export type CustomCursor = { id: string; name: string; src: string };
+/** Largest image accepted (stored as a data URL in local storage). */
+export const MAX_CUSTOM_BYTES = 1.5 * 1024 * 1024;
 export type CursorSize = "s" | "m" | "l";
 
-export const CURSORS: { id: CursorKind; label: string }[] = [
+export const CURSORS: { id: "system" | BuiltinCursor; label: string }[] = [
   { id: "system", label: "Sistema" },
   { id: "neko", label: "Neko" },
   { id: "kitsune", label: "Kitsune" },
@@ -108,15 +115,21 @@ function Mochi() {
   );
 }
 
-const ART: Record<Exclude<CursorKind, "system">, ComponentType> = { neko: Neko, kitsune: Kitsune, mochi: Mochi };
+const ART: Record<BuiltinCursor, ComponentType> = { neko: Neko, kitsune: Kitsune, mochi: Mochi };
+
+/** A built-in character, or the user's image with the same animations. */
+function Figure(props: { kind: BuiltinCursor | null; image?: string | null }) {
+  if (props.image) return <img src={props.image} alt="" draggable={false} className="ac-svg ac-img" />;
+  const Art = ART[props.kind ?? "neko"];
+  return <Art />;
+}
 
 /** The character alone, animated (Settings previews). */
-export function CursorPreview(props: { kind: Exclude<CursorKind, "system">; size?: number }) {
-  const Art = ART[props.kind];
+export function CursorPreview(props: { kind?: BuiltinCursor; image?: string; size?: number }) {
   return (
     <span className="ac ac-preview inline-block" style={{ width: props.size ?? 52, height: props.size ?? 52 }}>
       <span className="ac-char block size-full">
-        <Art />
+        <Figure kind={props.kind ?? null} image={props.image} />
       </span>
     </span>
   );
@@ -125,10 +138,12 @@ export function CursorPreview(props: { kind: Exclude<CursorKind, "system">; size
 const CLICKABLE = "a, button, [role=button], select, summary, label, input[type=checkbox], input[type=radio], article, [data-clickable]";
 const TEXTUAL = "input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, [contenteditable=true]";
 
-export function AnimeCursor(props: { kind: CursorKind; size: CursorSize }) {
+export function AnimeCursor(props: { kind: CursorKind; size: CursorSize; image?: string | null }) {
   const root = useRef<HTMLDivElement>(null);
   const fx = useRef<HTMLDivElement>(null);
-  const enabled = props.kind !== "system";
+  const custom = props.kind.startsWith("custom:");
+  // a custom cursor whose image was deleted falls back to the system pointer
+  const enabled = props.kind !== "system" && (!custom || !!props.image);
 
   useEffect(() => {
     if (!enabled) return;
@@ -208,8 +223,8 @@ export function AnimeCursor(props: { kind: CursorKind; size: CursorSize }) {
     };
   }, [enabled]);
 
-  if (props.kind === "system") return null;
-  const Art = ART[props.kind];
+  if (!enabled) return null;
+  const builtin = custom ? null : (props.kind as BuiltinCursor);
   const px = PX[props.size];
   return (
     <>
@@ -219,7 +234,7 @@ export function AnimeCursor(props: { kind: CursorKind; size: CursorSize }) {
           <path d="M1 1 L1 15.5 L5 11.8 L7.8 18 L10.6 16.7 L7.9 10.7 L13 10.5 Z" fill="var(--atv-accent)" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" />
         </svg>
         <span className="ac-char" style={{ width: px, height: px }}>
-          <Art />
+          <Figure kind={builtin} image={custom ? props.image : null} />
         </span>
         <span className="ac-zzz">z</span>
       </div>

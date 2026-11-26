@@ -142,6 +142,10 @@ html[data-cursor="on"] :is(input:not([type="checkbox"]):not([type="radio"]):not(
   height: 100%;
   overflow: visible;
 }
+.ac-img {
+  object-fit: contain;
+  user-select: none;
+}
 .ac .ac-svg {
   transform-origin: 50% 92%;
   animation: ac-bob 2.6s ease-in-out infinite;

@@ -1,9 +1,11 @@
-import { Moon, Sun } from "lucide-react";
+import { ImagePlus, Moon, Sun, X } from "lucide-react";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { inTauri, type DiscordStatus } from "../discord";
 import type { Prefs, Source } from "../sources";
 import type { DiscordSettings, Look, Theme } from "../store";
-import { CURSORS, CursorPreview } from "./Cursor";
+import { CURSORS, CursorPreview, MAX_CUSTOM_BYTES, type CustomCursor } from "./Cursor";
+import { newId } from "../sources";
 import { LanguagePrefs, SourcesList } from "./SourcesSettings";
 
 function Card(props: { title: string; text?: string; children: ReactNode; id?: string }) {
@@ -38,8 +40,43 @@ export function SettingsView(props: {
   onPrefs: (p: Prefs) => void;
   look: Look;
   onLook: (l: Look) => void;
+  customCursors: CustomCursor[];
+  onCustomCursors: (c: CustomCursor[]) => void;
 }) {
   const look = props.look;
+  const file = useRef<HTMLInputElement>(null);
+  const [cursorError, setCursorError] = useState<string | null>(null);
+  const addCursor = (f: File | undefined) => {
+    setCursorError(null);
+    if (!f) return;
+    if (!/^image\/(gif|png|apng|webp)$/.test(f.type)) {
+      setCursorError("Usa una imagen GIF, PNG, APNG o WebP.");
+      return;
+    }
+    if (f.size > MAX_CUSTOM_BYTES) {
+      setCursorError(`La imagen pesa ${(f.size / 1048576).toFixed(1)} MB; el máximo es 1,5 MB.`);
+      return;
+    }
+    const r = new FileReader();
+    r.onload = () => {
+      const c: CustomCursor = { id: newId(), name: f.name.replace(/\.[^.]+$/, "").slice(0, 24), src: String(r.result) };
+      const next = [...props.customCursors, c];
+      // local storage holds ~5 MB: check it fits before adding
+      try {
+        localStorage.setItem("atv.cursors", JSON.stringify(next));
+      } catch {
+        setCursorError("No queda espacio para más imágenes; quita alguna.");
+        return;
+      }
+      props.onCustomCursors(next);
+      props.onLook({ ...look, cursor: `custom:${c.id}` });
+    };
+    r.readAsDataURL(f);
+  };
+  const removeCursor = (id: string) => {
+    props.onCustomCursors(props.customCursors.filter((c) => c.id !== id));
+    if (look.cursor === `custom:${id}`) props.onLook({ ...look, cursor: "system" });
+  };
   const d = props.discord;
   const seg = (t: Theme, label: string, icon: ReactNode) => (
     <button
@@ -76,7 +113,7 @@ export function SettingsView(props: {
         title="Cursor"
         text="Cambia el puntero del ratón por un personaje animado: salta al moverse, se emociona sobre los botones y se duerme si no lo mueves."
       >
-        <div className="grid grid-cols-4 gap-3 max-sm:grid-cols-2">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
           {CURSORS.map((c) => {
             const on = look.cursor === c.id;
             return (
@@ -100,7 +137,56 @@ export function SettingsView(props: {
               </button>
             );
           })}
+          {props.customCursors.map((c) => {
+            const on = look.cursor === `custom:${c.id}`;
+            return (
+              <div key={c.id} className="group relative">
+                <button
+                  onClick={() => props.onLook({ ...look, cursor: `custom:${c.id}` })}
+                  className={`flex w-full flex-col items-center gap-2 rounded-2xl border-2 p-4 text-[14.5px] transition-colors ${
+                    on ? "border-accent bg-accent-soft" : "border-transparent bg-panel-2 hover:border-line"
+                  }`}
+                >
+                  <span className="grid h-[60px] place-items-center">
+                    <CursorPreview image={c.src} size={56} />
+                  </span>
+                  <span className="w-full truncate">{c.name}</span>
+                </button>
+                <button
+                  onClick={() => removeCursor(c.id)}
+                  title="Quitar este personaje"
+                  className="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-panel opacity-0 shadow-soft group-hover:opacity-100 hover:text-accent"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          })}
+          <button
+            onClick={() => file.current?.click()}
+            className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line p-4 text-[14.5px] text-muted hover:border-accent hover:text-accent"
+          >
+            <span className="grid h-[60px] place-items-center">
+              <ImagePlus size={26} />
+            </span>
+            Añadir personaje
+          </button>
+          <input
+            ref={file}
+            type="file"
+            accept="image/gif,image/png,image/apng,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              addCursor(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
         </div>
+        <p className="mt-3 text-[13.5px] text-muted">
+          Añade el personaje que quieras con un GIF, APNG o WebP animado (fondo transparente, máx. 1,5 MB). Se guarda solo en este
+          equipo.
+        </p>
+        {cursorError && <p className="mt-1 text-[13.5px] text-amber-500">{cursorError}</p>}
         <div className={`mt-5 flex items-center gap-3 ${look.cursor === "system" ? "pointer-events-none opacity-40" : ""}`}>
           <span className="text-[14px] text-muted">Tamaño</span>
           <div className="flex w-fit gap-1 rounded-full bg-panel-2/60 p-1">
