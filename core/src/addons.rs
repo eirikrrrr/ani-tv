@@ -167,6 +167,51 @@ pub async fn fetch_manifest(input: &str) -> Result<(String, Manifest), Error> {
     Ok((base, m))
 }
 
+/// One addon listed in a catalogue (the format of Stremio's
+/// addonscollection.json: an array of `{ transportUrl, manifest }`).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogEntry {
+    /// base URL, ready to install
+    pub url: String,
+    pub manifest: Manifest,
+    /// what its stream resource accepts; None = no streams
+    pub streams: Option<StreamSupport>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawEntry {
+    transport_url: String,
+    manifest: serde_json::Value,
+}
+
+/// Reads an addon catalogue. Entries that do not parse are skipped, adult
+/// addons are left out.
+pub async fn fetch_catalog(url: &str) -> Result<Vec<CatalogEntry>, Error> {
+    let u = url.trim().replacen("stremio://", "https://", 1);
+    if !(u.starts_with("https://") || u.starts_with("http://")) {
+        return Err(Error::Url("debe empezar por https:// o http://".into()));
+    }
+    let raw: Vec<serde_json::Value> = get_json(&u).await?;
+    Ok(parse_catalog(raw))
+}
+
+pub fn parse_catalog(raw: Vec<serde_json::Value>) -> Vec<CatalogEntry> {
+    raw.into_iter()
+        .filter_map(|v| serde_json::from_value::<RawEntry>(v).ok())
+        .filter_map(|e| {
+            let manifest: Manifest = serde_json::from_value(e.manifest).ok()?;
+            if manifest.behavior_hints.adult {
+                return None;
+            }
+            let url = base_url(&e.transport_url).ok()?;
+            let streams = manifest.stream_support();
+            Some(CatalogEntry { url, manifest, streams })
+        })
+        .collect()
+}
+
 // ---------------------------------------------------------------------------
 // ids
 
@@ -459,6 +504,20 @@ mod tests {
         // plain string resource: types/prefixes come from the manifest
         let plain: Manifest = serde_json::from_str(r#"{"id":"y","name":"P","resources":["stream"],"types":["series"],"idPrefixes":["tt"]}"#).unwrap();
         assert_eq!(plain.stream_support().unwrap(), StreamSupport { types: vec!["series".into()], id_prefixes: Some(vec!["tt".into()]) });
+    }
+
+    #[test]
+    fn catalogs() {
+        let raw: Vec<serde_json::Value> = serde_json::from_str(&format!(r#"[
+            {{"transportUrl": "https://a.example.org/manifest.json", "manifest": {MANIFEST}}},
+            {{"transportUrl": "https://b.example.org/manifest.json", "manifest": {{"id":"b","name":"Adult","resources":["stream"],"behaviorHints":{{"adult":true}}}}}},
+            {{"transportUrl": "https://c.example.org/manifest.json", "manifest": {{"broken": true}}}},
+            {{"transportUrl": "https://d.example.org/manifest.json", "manifest": {{"id":"d","name":"Subs","resources":["subtitles"]}}}}
+        ]"#)).unwrap();
+        let c = parse_catalog(raw);
+        assert_eq!(c.iter().map(|e| e.manifest.name.as_str()).collect::<Vec<_>>(), vec!["Example Anime", "Subs"]);
+        assert_eq!(c[0].url, "https://a.example.org");
+        assert!(c[0].streams.is_some() && c[1].streams.is_none());
     }
 
     #[test]

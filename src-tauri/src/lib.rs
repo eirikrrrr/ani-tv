@@ -5,7 +5,8 @@ use std::sync::Mutex;
 
 use anime_tv_core::discord::{Discord, Idle, Presence};
 use anime_tv_core::rank::{rank, Prefs, Ranked, Wanted};
-use anime_tv_core::sources::{search_all, search_source, Source, SourceError};
+use anime_tv_core::addons::{self, CatalogEntry, Manifest, StreamSupport};
+use anime_tv_core::sources::{search_all, search_source, Source, SourceError, SourceKind};
 use serde::Serialize;
 use tauri::{Manager, RunEvent, State};
 
@@ -77,20 +78,55 @@ struct SearchResult {
 /// releases, best first by the user's preferences.
 #[tauri::command]
 async fn sources_search(sources: Vec<Source>, wanted: Wanted, prefs: Prefs) -> Result<SearchResult, String> {
-    let out = search_all(&sources, &wanted.titles).await;
+    let out = search_all(&sources, &wanted.titles, wanted.addon_target()).await;
     let total = out.releases.len();
     Ok(SearchResult { results: rank(out.releases, &wanted, &prefs), errors: out.errors, total })
 }
 
-/// "Probar" in Settings: fetches the latest items of one source.
+/// "Probar" in Settings: feeds fetch their latest items, addons their
+/// manifest. Returns a short status line.
 #[tauri::command]
-async fn source_test(source: Source) -> Result<usize, String> {
-    search_source(&source, "").await.map(|r| r.len()).map_err(|e| e.to_string())
+async fn source_test(source: Source) -> Result<String, String> {
+    match &source.kind {
+        SourceKind::Stremio { url, .. } => {
+            let (_, m) = addons::fetch_manifest(url).await.map_err(|e| e.to_string())?;
+            Ok(format!("Funciona: {} {}", m.name, m.version))
+        }
+        _ => search_source(&source, "")
+            .await
+            .map(|r| format!("Funciona: {} resultados recientes", r.len()))
+            .map_err(|e| e.to_string()),
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AddonInfo {
+    /// base URL to install
+    url: String,
+    manifest: Manifest,
+    /// None = the addon offers no streams
+    streams: Option<StreamSupport>,
+}
+
+/// Reads an addon's manifest for the install dialog (URL, stremio:// link).
+#[tauri::command]
+async fn addon_manifest(url: String) -> Result<AddonInfo, String> {
+    let (url, manifest) = addons::fetch_manifest(&url).await.map_err(|e| e.to_string())?;
+    let streams = manifest.stream_support();
+    Ok(AddonInfo { url, manifest, streams })
+}
+
+/// The addon store: one catalogue (Stremio's addonscollection.json format).
+#[tauri::command]
+async fn addon_catalog(url: String) -> Result<Vec<CatalogEntry>, String> {
+    addons::fetch_catalog(&url).await.map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             discord_connect,
@@ -99,7 +135,9 @@ pub fn run() {
             discord_clear,
             discord_disconnect,
             sources_search,
-            source_test
+            source_test,
+            addon_manifest,
+            addon_catalog
         ])
         .build(tauri::generate_context!())
         .expect("error while building the app")

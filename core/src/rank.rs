@@ -57,6 +57,18 @@ pub struct Wanted {
     /// None for movies / single-file entries
     pub episode: Option<u32>,
     pub season: Option<u32>,
+    /// AniList id, for addons (they look series up by id, not by title)
+    #[serde(default)]
+    pub anilist_id: Option<u32>,
+    /// a film / single-episode entry
+    #[serde(default)]
+    pub movie: bool,
+}
+
+impl Wanted {
+    pub fn addon_target(&self) -> Option<crate::addons::Target> {
+        Some(crate::addons::Target { anilist_id: self.anilist_id?, episode: self.episode, movie: self.movie })
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -191,7 +203,7 @@ mod tests {
     }
 
     fn wanted(ep: Option<u32>) -> Wanted {
-        Wanted { titles: vec!["Sousou no Frieren".into(), "Frieren: Beyond Journey's End".into()], episode: ep, season: None }
+        Wanted { titles: vec!["Sousou no Frieren".into(), "Frieren: Beyond Journey's End".into()], episode: ep, season: None, anilist_id: None, movie: false }
     }
 
     fn titles(r: &[Ranked]) -> Vec<&str> {
@@ -273,7 +285,7 @@ mod tests {
 
     #[test]
     fn sequels_match_by_season() {
-        let w = Wanted { titles: vec!["Sousou no Frieren 2nd Season".into()], episode: Some(5), season: None };
+        let w = Wanted { titles: vec!["Sousou no Frieren 2nd Season".into()], episode: Some(5), season: None, anilist_id: None, movie: false };
         let rs = vec![
             rel("[A] Sousou no Frieren S2 - 05 [1080p] [ENG]", 100),
             rel("[B] Sousou no Frieren Season 1 - 05 [1080p] [ENG]", 100),

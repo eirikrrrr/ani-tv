@@ -96,7 +96,7 @@ export function Picker(props: {
     setError(null);
     const titles = [media.romaji, media.title].filter((t, i, a): t is string => !!t && a.indexOf(t) === i);
     const isMovie = media.format === "MOVIE" || media.episodes === 1;
-    search(enabled, { titles, episode: isMovie ? null : episode, season: null }, props.prefs).then(setRes, (e: Error) =>
+    search(enabled, { titles, episode: isMovie ? null : episode, season: null, anilistId: media.id, movie: isMovie }, props.prefs).then(setRes, (e: Error) =>
       setError(e.message),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps

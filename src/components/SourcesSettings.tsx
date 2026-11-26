@@ -100,7 +100,7 @@ export function LanguagePrefs(props: { prefs: Prefs; onChange: (p: Prefs) => voi
   );
 }
 
-type TestState = { state: "running" } | { state: "ok"; n: number } | { state: "error"; error: string };
+type TestState = { state: "running" } | { state: "ok"; text: string } | { state: "error"; error: string };
 
 const EMPTY: Omit<Source, "id"> = { name: "", enabled: true, kind: "torznab", url: "", apiKey: "", categories: "", defaultSubs: null };
 
@@ -113,8 +113,8 @@ export function SourcesList(props: { sources: Source[]; onChange: (s: Source[]) 
   const run = async (s: Source) => {
     setTests((t) => ({ ...t, [s.id]: { state: "running" } }));
     try {
-      const n = await testSource(s);
-      setTests((t) => ({ ...t, [s.id]: { state: "ok", n } }));
+      const text = await testSource(s);
+      setTests((t) => ({ ...t, [s.id]: { state: "ok", text } }));
     } catch (e) {
       setTests((t) => ({ ...t, [s.id]: { state: "error", error: (e as Error).message } }));
     }
@@ -130,7 +130,9 @@ export function SourcesList(props: { sources: Source[]; onChange: (s: Source[]) 
   return (
     <div className="flex flex-col gap-3">
       {props.sources.length === 0 && !draft && (
-        <p className="text-[14.5px] text-muted">No hay fuentes. La app no trae ninguna: añade las que tú uses.</p>
+        <p className="text-[14.5px] text-muted">
+          No hay fuentes. La app no trae ninguna: añade las que tú uses aquí, o instala addons de Stremio en la sección Addons.
+        </p>
       )}
       {props.sources.map((s) => {
         const t = tests[s.id];
@@ -145,14 +147,17 @@ export function SourcesList(props: { sources: Source[]; onChange: (s: Source[]) 
             />
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-2 text-[15px]">
+                {s.logo && <img src={s.logo} alt="" className="size-5 rounded object-contain" />}
                 <span className="truncate font-medium">{s.name}</span>
-                <span className="rounded-md bg-panel px-1.5 py-0.5 text-[11px] tracking-wide text-muted uppercase">{s.kind}</span>
+                <span className="rounded-md bg-panel px-1.5 py-0.5 text-[11px] tracking-wide text-muted uppercase">
+                  {s.kind === "stremio" ? "addon" : s.kind}
+                </span>
                 {s.defaultSubs && <span className="text-[12px] text-muted">subs por defecto: {langLabel(s.defaultSubs)}</span>}
               </p>
               <p className="truncate text-[13px] text-muted">{s.url}</p>
               {t && (
                 <p className={`text-[13px] ${t.state === "error" ? "text-amber-500" : t.state === "ok" ? "text-emerald-500" : "text-muted"}`}>
-                  {t.state === "running" ? "Probando…" : t.state === "ok" ? `Funciona: ${t.n} resultados recientes` : t.error}
+                  {t.state === "running" ? "Probando…" : t.state === "ok" ? t.text : t.error}
                 </p>
               )}
             </div>

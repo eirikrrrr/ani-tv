@@ -3,11 +3,12 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { currentSeason, genreLabel, GENRES, list, type ListQuery, type Media } from "./anilist";
 import { Dock, Sidebar, TopBar, type ViewKind } from "./components/Chrome";
 import { Details, Empty, Hero, NowWatching, PosterGrid, SectionTitle, WideRow, type Now } from "./components/Media";
+import { AddonsView } from "./components/Addons";
 import { AnimeCursor, type CursorKind, type CustomCursor } from "./components/Cursor";
 import { Picker, type PickTarget } from "./components/Picker";
 import { SettingsView } from "./components/Settings";
 import * as discord from "./discord";
-import { DEFAULT_PREFS, type Prefs, type Ranked, type Source } from "./sources";
+import { DEFAULT_CATALOGS, DEFAULT_PREFS, type Catalog, type Prefs, type Ranked, type Source } from "./sources";
 import { DEFAULT_LOOK, toSaved, useStored, type DiscordSettings, type Look, type Progress, type Saved, type Theme } from "./store";
 
 const CATEGORIES: { id: string; label: string; badge: string; q: ListQuery }[] = [
@@ -28,6 +29,7 @@ export default function App() {
   const [dsettings, setDsettings] = useStored<DiscordSettings>("discord", { enabled: true, clientId: "" });
   const [sources, setSources] = useStored<Source[]>("sources", []);
   const [prefs, setPrefs] = useStored<Prefs>("prefs", DEFAULT_PREFS);
+  const [catalogs, setCatalogs] = useStored<Catalog[]>("catalogs", DEFAULT_CATALOGS);
   const [look, setLook] = useStored<Look>("look", DEFAULT_LOOK);
   const [customCursors, setCustomCursors] = useStored<CustomCursor[]>("cursors", []);
   const cursorImage = look.cursor.startsWith("custom:")
@@ -257,6 +259,9 @@ export default function App() {
           />
         </div>
       );
+      break;
+    case "addons":
+      content = <AddonsView sources={sources} onSources={setSources} catalogs={catalogs} onCatalogs={setCatalogs} notify={notify} />;
       break;
     case "settings":
       content = (
