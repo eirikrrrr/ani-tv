@@ -2,7 +2,8 @@ import { Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { inTauri, type DiscordStatus } from "../discord";
 import type { Prefs, Source } from "../sources";
-import type { DiscordSettings, Theme } from "../store";
+import type { DiscordSettings, Look, Theme } from "../store";
+import { CURSORS, CursorPreview } from "./Cursor";
 import { LanguagePrefs, SourcesList } from "./SourcesSettings";
 
 function Card(props: { title: string; text?: string; children: ReactNode; id?: string }) {
@@ -35,7 +36,10 @@ export function SettingsView(props: {
   onSources: (s: Source[]) => void;
   prefs: Prefs;
   onPrefs: (p: Prefs) => void;
+  look: Look;
+  onLook: (l: Look) => void;
 }) {
+  const look = props.look;
   const d = props.discord;
   const seg = (t: Theme, label: string, icon: ReactNode) => (
     <button
@@ -55,6 +59,61 @@ export function SettingsView(props: {
         <div className="flex w-fit gap-1 rounded-full bg-panel-2/60 p-1">
           {seg("dark", "Oscuro", <Moon size={16} />)}
           {seg("light", "Claro", <Sun size={16} />)}
+        </div>
+        <label className="mt-5 flex items-center gap-3 text-[15px]">
+          <input
+            type="checkbox"
+            checked={look.effects}
+            onChange={(e) => props.onLook({ ...look, effects: e.target.checked })}
+            className="size-5 accent-[var(--atv-accent)]"
+          />
+          Efectos visuales (pétalos de sakura, zoom en la portada)
+        </label>
+      </Card>
+
+      <Card
+        id="cursor"
+        title="Cursor"
+        text="Cambia el puntero del ratón por un personaje animado: salta al moverse, se emociona sobre los botones y se duerme si no lo mueves."
+      >
+        <div className="grid grid-cols-4 gap-3 max-sm:grid-cols-2">
+          {CURSORS.map((c) => {
+            const on = look.cursor === c.id;
+            return (
+              <button
+                key={c.id}
+                onClick={() => props.onLook({ ...look, cursor: c.id })}
+                className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-[14.5px] transition-colors ${
+                  on ? "border-accent bg-accent-soft" : "border-transparent bg-panel-2 hover:border-line"
+                }`}
+              >
+                <span className="grid h-[60px] place-items-center">
+                  {c.id === "system" ? (
+                    <svg width="22" height="28" viewBox="0 0 16 20" aria-hidden>
+                      <path d="M1 1 L1 15.5 L5 11.8 L7.8 18 L10.6 16.7 L7.9 10.7 L13 10.5 Z" fill="var(--atv-text)" stroke="var(--atv-panel)" strokeWidth="1.5" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <CursorPreview kind={c.id} size={56} />
+                  )}
+                </span>
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className={`mt-5 flex items-center gap-3 ${look.cursor === "system" ? "pointer-events-none opacity-40" : ""}`}>
+          <span className="text-[14px] text-muted">Tamaño</span>
+          <div className="flex w-fit gap-1 rounded-full bg-panel-2/60 p-1">
+            {(["s", "m", "l"] as const).map((z) => (
+              <button
+                key={z}
+                onClick={() => props.onLook({ ...look, cursorSize: z })}
+                className={`h-9 rounded-full px-4 text-[14.5px] ${look.cursorSize === z ? "bg-accent text-white" : "hover:bg-panel-2"}`}
+              >
+                {z === "s" ? "Pequeño" : z === "m" ? "Mediano" : "Grande"}
+              </button>
+            ))}
+          </div>
         </div>
       </Card>
 

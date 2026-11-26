@@ -46,3 +46,12 @@ export type Progress = Saved & { episode: number; updatedAt: number };
 export type Theme = "dark" | "light";
 
 export type DiscordSettings = { enabled: boolean; clientId: string };
+
+/** Look & feel: animated cursor and decorative effects. */
+export type Look = {
+  cursor: "system" | "neko" | "kitsune" | "mochi";
+  cursorSize: "s" | "m" | "l";
+  /** petals, Ken Burns zoom */
+  effects: boolean;
+};
+export const DEFAULT_LOOK: Look = { cursor: "system", cursorSize: "m", effects: true };

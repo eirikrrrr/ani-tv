@@ -4,13 +4,38 @@
 import {
   ArrowLeft, Check, ChevronDown, ChevronUp, Flame, Heart, Info, Pause, Play, SkipBack, SkipForward, Star,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { availableEpisodes, byId, formatLabel, genreLabel, type Media } from "../anilist";
 import type { DiscordStatus } from "../discord";
 import type { Saved } from "../store";
 
 const meta = (m: Pick<Media, "year" | "format" | "episodes">) =>
   [m.year, formatLabel(m.format), m.episodes ? `${m.episodes} eps` : null].filter(Boolean).join(" · ");
+
+/** Sakura petals drifting over the hero (off with Settings → visual effects). */
+function Petals() {
+  const petals = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => ({
+        left: (i * 83 + 7) % 100,
+        d: 8 + ((i * 37) % 7),
+        delay: -((i * 1.7) % 9),
+        scale: 0.6 + ((i * 29) % 5) / 10,
+      })),
+    [],
+  );
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {petals.map((p, i) => (
+        <span
+          key={i}
+          className="petal"
+          style={{ left: `${p.left}%`, scale: p.scale, "--d": `${p.d}s`, "--delay": `${p.delay}s` } as CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function Hero(props: {
   items: Media[];
@@ -32,11 +57,12 @@ export function Hero(props: {
         key={m.id}
         src={m.banner ?? m.cover}
         alt=""
-        className="fade-in absolute inset-0 size-full object-cover"
+        className="kenburns absolute inset-0 size-full object-cover"
         style={{ objectPosition: m.banner ? "center" : "center 25%" }}
       />
       <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/5" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+      <Petals />
 
       <div key={`t${m.id}`} className="fade-in relative flex h-full max-w-[600px] flex-col justify-end gap-3 p-7 pr-20">
         <span className="mb-auto flex w-fit items-center gap-1.5 rounded-full bg-white/12 px-4 py-2 text-[15px] backdrop-blur-md">
@@ -71,7 +97,7 @@ export function Hero(props: {
             title={fav ? "Quitar de favoritos" : "Añadir a favoritos"}
             className="grid size-12 place-items-center rounded-full bg-white/12 backdrop-blur-md hover:bg-white/20"
           >
-            <Heart size={18} className={fav ? "text-accent" : ""} fill={fav ? "currentColor" : "none"} />
+            <Heart key={String(fav)} size={18} className={fav ? "heart-pop text-accent" : ""} fill={fav ? "currentColor" : "none"} />
           </button>
         </div>
       </div>
@@ -122,11 +148,12 @@ export function WideRow(props: { items: Media[]; onOpen: (id: number) => void; o
     );
   return (
     <div className="no-scrollbar -mx-1 flex snap-x gap-5 overflow-x-auto px-1 pb-2">
-      {props.items.map((m) => (
+      {props.items.map((m, i) => (
         <article
           key={m.id}
           onClick={() => props.onOpen(m.id)}
-          className="group relative h-[180px] w-[calc((100%-40px)/3)] min-w-[260px] shrink-0 cursor-pointer snap-start overflow-hidden rounded-3xl bg-black text-white shadow-soft"
+          style={{ "--i": i } as CSSProperties}
+          className="stagger lift group relative h-[180px] w-[calc((100%-40px)/3)] min-w-[260px] shrink-0 cursor-pointer snap-start overflow-hidden rounded-3xl bg-black text-white shadow-soft"
         >
           <img
             src={m.banner ?? m.cover}
@@ -167,9 +194,14 @@ export function PosterGrid(props: { items: (Media | Saved)[]; onOpen: (id: numbe
     );
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-6">
-      {props.items.map((m) => (
-        <button key={m.id} onClick={() => props.onOpen(m.id)} className="group fade-in text-left">
-          <div className="aspect-[2/3] overflow-hidden rounded-2xl bg-panel shadow-soft">
+      {props.items.map((m, i) => (
+        <button
+          key={m.id}
+          onClick={() => props.onOpen(m.id)}
+          style={{ "--i": i } as CSSProperties}
+          className="stagger group text-left"
+        >
+          <div className="lift aspect-[2/3] overflow-hidden rounded-2xl bg-panel shadow-soft">
             <img
               src={m.cover}
               alt=""
@@ -251,7 +283,12 @@ export function Details(props: {
                 onClick={() => props.onFavorite(m)}
                 className="flex h-12 items-center gap-2 rounded-full bg-white/12 px-6 text-[16px] hover:bg-white/20"
               >
-                <Heart size={18} className={props.isFavorite ? "text-accent" : ""} fill={props.isFavorite ? "currentColor" : "none"} />
+                <Heart
+                  key={String(props.isFavorite)}
+                  size={18}
+                  className={props.isFavorite ? "heart-pop text-accent" : ""}
+                  fill={props.isFavorite ? "currentColor" : "none"}
+                />
                 {props.isFavorite ? "En favoritos" : "Favorito"}
               </button>
             </div>
@@ -264,14 +301,15 @@ export function Details(props: {
         <p className="text-muted">Todavía no hay episodios emitidos.</p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3">
-          {Array.from({ length: eps }, (_, k) => k + 1).map((ep) => {
+          {Array.from({ length: eps }, (_, k) => k + 1).map((ep, i) => {
             const playing = props.current === ep;
             const seen = ep < props.watchedUpTo;
             return (
               <button
                 key={ep}
                 onClick={() => props.onWatch(m, ep)}
-                className={`flex h-14 items-center justify-between rounded-2xl px-4 text-[15px] transition-colors ${
+                style={{ "--i": i } as CSSProperties}
+                className={`stagger flex h-14 items-center justify-between rounded-2xl px-4 text-[15px] transition-colors ${
                   playing ? "bg-accent text-white" : "bg-panel hover:bg-panel-2"
                 }`}
               >
@@ -303,7 +341,14 @@ export function NowWatching(props: {
       <button onClick={() => props.onOpen(m.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <img src={m.cover} alt="" className="h-16 w-12 shrink-0 rounded-xl object-cover" />
         <span className="min-w-0">
-          <span className="text-[12px] font-medium tracking-wide text-accent uppercase">Ahora viendo</span>
+          <span className="flex items-center gap-2 text-[12px] font-medium tracking-wide text-accent uppercase">
+            <span className="eq" aria-hidden>
+              <i />
+              <i />
+              <i />
+            </span>
+            Ahora viendo
+          </span>
           <span className="block truncate text-[16px] font-medium">{m.title}</span>
           <span className="block truncate text-[13px] text-muted">
             Episodio {episode}

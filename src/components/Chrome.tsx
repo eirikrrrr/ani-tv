@@ -97,7 +97,10 @@ export function TopBar(props: {
           <DiscordGlyph />
         </span>
         <span className="text-[15px] font-medium max-sm:hidden">{STATUS_TEXT[props.discord]}</span>
-        <span className={`size-2 rounded-full ${dot} max-sm:hidden`} />
+        <span className="relative flex size-2 max-sm:hidden">
+          {props.discord === "on" && <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-60" />}
+          <span className={`relative size-2 rounded-full ${dot}`} />
+        </span>
       </button>
     </header>
   );

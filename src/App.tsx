@@ -3,11 +3,12 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { currentSeason, genreLabel, GENRES, list, type ListQuery, type Media } from "./anilist";
 import { Dock, Sidebar, TopBar, type ViewKind } from "./components/Chrome";
 import { Details, Empty, Hero, NowWatching, PosterGrid, SectionTitle, WideRow, type Now } from "./components/Media";
+import { AnimeCursor } from "./components/Cursor";
 import { Picker, type PickTarget } from "./components/Picker";
 import { SettingsView } from "./components/Settings";
 import * as discord from "./discord";
 import { DEFAULT_PREFS, type Prefs, type Ranked, type Source } from "./sources";
-import { toSaved, useStored, type DiscordSettings, type Progress, type Saved, type Theme } from "./store";
+import { DEFAULT_LOOK, toSaved, useStored, type DiscordSettings, type Look, type Progress, type Saved, type Theme } from "./store";
 
 const CATEGORIES: { id: string; label: string; badge: string; q: ListQuery }[] = [
   { id: "trending", label: "Tendencias", badge: "Tendencia ahora", q: { sort: ["TRENDING_DESC", "POPULARITY_DESC"] } },
@@ -27,6 +28,7 @@ export default function App() {
   const [dsettings, setDsettings] = useStored<DiscordSettings>("discord", { enabled: true, clientId: "" });
   const [sources, setSources] = useStored<Source[]>("sources", []);
   const [prefs, setPrefs] = useStored<Prefs>("prefs", DEFAULT_PREFS);
+  const [look, setLook] = useStored<Look>("look", DEFAULT_LOOK);
   const [pick, setPick] = useState<PickTarget | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -41,6 +43,9 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+  useEffect(() => {
+    document.documentElement.dataset.fx = look.effects ? "on" : "off";
+  }, [look.effects]);
 
   // ---- catalogue --------------------------------------------------------
   const cat = CATEGORIES.find((c) => c.id === category) ?? CATEGORIES[0];
@@ -256,6 +261,8 @@ export default function App() {
           onSources={setSources}
           prefs={prefs}
           onPrefs={setPrefs}
+          look={look}
+          onLook={setLook}
           onDisconnect={() => {
             discord.disconnect();
             setDstatus("off");
@@ -307,7 +314,9 @@ export default function App() {
           onOpen={openDetail}
         />
         <main id="main" className="min-w-0 flex-1 overflow-y-auto pr-1 max-md:pb-24">
-          {content}
+          <div key={`${view.kind}-${view.id ?? ""}`} className="view-enter">
+            {content}
+          </div>
           {playing && (
             <NowWatching
               now={playing}
@@ -320,6 +329,7 @@ export default function App() {
         </main>
       </div>
       <Dock view={view.kind} onView={(k) => go({ kind: k })} />
+      <AnimeCursor kind={look.cursor} size={look.cursorSize} />
       {pick && (
         <Picker
           target={pick}
