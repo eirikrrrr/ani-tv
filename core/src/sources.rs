@@ -36,6 +36,16 @@ pub enum SourceKind {
     },
     #[serde(rename_all = "camelCase")]
     Rss { url: String },
+    /// A Stremio addon: base URL plus what its stream resource accepts
+    /// (copied from the manifest when installed).
+    #[serde(rename_all = "camelCase")]
+    Stremio {
+        url: String,
+        #[serde(default)]
+        types: Vec<String>,
+        #[serde(default)]
+        id_prefixes: Option<Vec<String>>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -72,6 +82,13 @@ pub struct Release {
     pub published: Option<String>,
     /// the release's page on the site, when the feed gives one
     pub info_url: Option<String>,
+    /// file inside the torrent to play (addons pick it for packs)
+    pub file_idx: Option<u32>,
+    /// direct http(s) stream (some addons)
+    pub url: Option<String>,
+    /// already known to be the wanted episode (addon results): ranking does
+    /// not filter it by title/episode
+    pub exact: bool,
     pub parsed: ParsedName,
 }
 
@@ -128,6 +145,7 @@ pub fn request_url(kind: &SourceKind, query: &str) -> Result<url::Url, Error> {
             let s = url.trim().replace("{query}", &enc);
             url::Url::parse(&s).map_err(|e| Error::Url(e.to_string()))
         }
+        SourceKind::Stremio { .. } => Err(Error::Url("un addon no es un feed".into())),
     }
 }
 
@@ -177,14 +195,11 @@ pub fn parse_size(s: &str) -> Option<u64> {
     let unit = s[i..].trim().to_ascii_lowercase();
     let mul: f64 = match unit.as_str() {
         "b" | "bytes" => 1.0,
-        "kb" => 1e3,
-        "kib" => 1024.0,
-        "mb" => 1e6,
-        "mib" => 1024f64.powi(2),
-        "gb" => 1e9,
-        "gib" => 1024f64.powi(3),
-        "tb" => 1e12,
-        "tib" => 1024f64.powi(4),
+        // torrent sites and clients write "GB" for 1024³ (and show sizes so)
+        "kb" | "kib" => 1024.0,
+        "mb" | "mib" => 1024f64.powi(2),
+        "gb" | "gib" => 1024f64.powi(3),
+        "tb" | "tib" => 1024f64.powi(4),
         _ => return None,
     };
     Some((n * mul) as u64)
@@ -306,6 +321,9 @@ pub fn parse_feed(xml: &str, source_id: &str) -> Result<Vec<Release>, Error> {
             leechers,
             published: text("pubDate"),
             info_url,
+            file_idx: None,
+            url: None,
+            exact: false,
         });
     }
     Ok(out)
@@ -340,17 +358,45 @@ pub struct SearchOutcome {
     pub errors: Vec<SourceError>,
 }
 
-/// Every enabled source × every title variant, concurrently. Duplicates (same
-/// info hash, or same name) are dropped; per-source failures are reported
-/// without failing the whole search.
-pub async fn search_all(sources: &[Source], titles: &[String]) -> SearchOutcome {
+/// Every enabled source, concurrently: feeds once per title variant, addons
+/// once for the target episode. Duplicates (same info hash, or same name)
+/// are dropped, keeping the first (addon results carry the file to play);
+/// per-source failures are reported without failing the whole search.
+pub async fn search_all(sources: &[Source], titles: &[String], target: Option<crate::addons::Target>) -> SearchOutcome {
+    search_all_with(sources, titles, target, crate::addons::MAPPING_URL).await
+}
+
+pub async fn search_all_with(
+    sources: &[Source],
+    titles: &[String],
+    target: Option<crate::addons::Target>,
+    mapping_url: &str,
+) -> SearchOutcome {
+    use futures::future::BoxFuture;
     let titles: Vec<&String> = titles.iter().filter(|t| !t.trim().is_empty()).take(3).collect();
-    let jobs = sources.iter().filter(|s| s.enabled).flat_map(|s| {
-        titles.iter().map(move |t| async move { (s, search_source(s, t).await) })
-    });
+    let mut jobs: Vec<BoxFuture<'_, (&Source, Result<Vec<Release>, Error>)>> = Vec::new();
+    for s in sources.iter().filter(|s| s.enabled) {
+        match &s.kind {
+            SourceKind::Stremio { url, types, id_prefixes } => {
+                let Some(t) = target else { continue };
+                let support = crate::addons::StreamSupport { types: types.clone(), id_prefixes: id_prefixes.clone() };
+                jobs.push(Box::pin(async move {
+                    (s, crate::addons::streams(&s.id, url, &support, &t, mapping_url).await)
+                }));
+            }
+            _ => {
+                for t in &titles {
+                    jobs.push(Box::pin(async move { (s, search_source(s, t).await) }));
+                }
+            }
+        }
+    }
     let mut out = SearchOutcome::default();
     let mut seen = std::collections::HashSet::new();
-    for (src, res) in join_all(jobs).await {
+    let mut results = join_all(jobs).await;
+    // addon results first so their entry (with file index) wins de-duplication
+    results.sort_by_key(|(s, _)| !matches!(s.kind, SourceKind::Stremio { .. }));
+    for (src, res) in results {
         match res {
             Ok(rs) => {
                 for r in rs {
@@ -467,7 +513,7 @@ mod tests {
     fn sizes() {
         assert_eq!(parse_size("1024"), Some(1024));
         assert_eq!(parse_size("1 KiB"), Some(1024));
-        assert_eq!(parse_size("700 MB"), Some(700_000_000));
+        assert_eq!(parse_size("700 MB"), Some(734_003_200));
         assert_eq!(parse_size("1,5 GiB"), Some(1610612736));
         assert_eq!(parse_size("lots"), None);
     }
@@ -508,7 +554,7 @@ mod tests {
                 kind: SourceKind::Rss { url: bad } },
         ];
         // two titles hit each source twice: duplicates must collapse
-        let out = search_all(&sources, &["Frieren".into(), "Sousou no Frieren".into()]).await;
+        let out = search_all(&sources, &["Frieren".into(), "Sousou no Frieren".into()], None).await;
         assert_eq!(out.releases.len(), 3);
         let from_feed = out.releases.iter().find(|r| r.source == "b").unwrap();
         assert_eq!(from_feed.parsed.subs, vec![Lang::Es], "the source's default subtitle language applies");

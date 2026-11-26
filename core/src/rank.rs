@@ -136,8 +136,12 @@ pub fn rank(releases: Vec<Release>, wanted: &Wanted, prefs: &Prefs) -> Vec<Ranke
     let season = wanted.season();
     let mut out: Vec<Ranked> = releases
         .into_iter()
-        .filter(|r| title_matches(&r.parsed.title, &wanted.titles))
+        // addon results are already for this episode
+        .filter(|r| r.exact || title_matches(&r.parsed.title, &wanted.titles))
         .filter(|r| {
+            if r.exact {
+                return true;
+            }
             let got = r.parsed.season.or_else(|| strip_season(&r.parsed.title).1);
             match (season, got) {
                 (Some(a), Some(b)) => a == b,
@@ -147,6 +151,7 @@ pub fn rank(releases: Vec<Release>, wanted: &Wanted, prefs: &Prefs) -> Vec<Ranke
             }
         })
         .filter(|r| match wanted.episode {
+            _ if r.exact => true,
             Some(ep) => r.parsed.has_episode(ep) || (prefs.batches && r.parsed.batch && r.parsed.episode.is_none()),
             None => true,
         })
@@ -178,6 +183,9 @@ mod tests {
             leechers: None,
             published: None,
             info_url: None,
+            file_idx: None,
+            url: None,
+            exact: false,
             parsed: parse(title),
         }
     }
@@ -276,6 +284,15 @@ mod tests {
         let mut t = titles(&out);
         t.sort();
         assert_eq!(t, vec!["[A] Sousou no Frieren S2 - 05 [1080p] [ENG]", "[C] Sousou no Frieren 2nd Season - 05 [1080p] [ENG]"]);
+    }
+
+    #[test]
+    fn addon_results_skip_title_and_episode_filters() {
+        // addons answer for a specific episode; their names may not match
+        let mut r = rel("Episode 5 · 1080p · Sub Español", 20);
+        r.exact = true;
+        let out = rank(vec![r, rel("[A] Dungeon Meshi - 05 [ENG]", 900)], &wanted(Some(5)), &Prefs::default());
+        assert_eq!(titles(&out), vec!["Episode 5 · 1080p · Sub Español"]);
     }
 
     #[test]
