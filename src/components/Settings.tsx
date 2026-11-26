@@ -119,7 +119,7 @@ export function SettingsView(props: {
 
       <Card title="Acerca de">
         <p className="text-[14.5px] text-muted">
-          Anime TV 0.1.0 · catálogo e imágenes de AniList. La app no aloja ni distribuye contenido.
+          Anime TV {__APP_VERSION__} · catálogo e imágenes de AniList. La app no aloja ni distribuye contenido.
         </p>
       </Card>
     </div>
