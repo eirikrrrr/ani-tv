@@ -1,6 +1,6 @@
 [package]
 name = "anime-tv"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 description = "Anime TV: escritorio para ver anime con estado en Discord"
 edition = "2021"
 
