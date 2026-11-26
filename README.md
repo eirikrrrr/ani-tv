@@ -4,16 +4,18 @@ App de escritorio (Windows, Linux, macOS) para descubrir y ver anime, con
 **estado en Discord**: tus amigos ven qué serie y qué episodio estás viendo,
 con su portada.
 
-> Estado: **fase 1**. El catálogo, la interfaz y Discord funcionan; el
-> reproductor y el streaming llegan en la fase 2.
+> Estado: **alpha**. Catálogo, Discord, fuentes e idiomas funcionan; el
+> reproductor integrado (streaming) llega en la próxima fase.
 
 ## Qué hace ya
 
 - Catálogo de [AniList](https://anilist.co): tendencias, temporada actual, populares,
   mejor valoradas, películas, búsqueda y géneros.
 - Ficha de cada serie con episodios emitidos, favoritos y «Continuar viendo».
-- **Discord Rich Presence**: «Viendo _Serie_ · Episodio 3 de 12», con portada,
-  tiempo transcurrido y botón «Ver la serie».
+- **Discord Rich Presence**: logo de la app mientras navegas; al ver, «Viendo _Serie_ ·
+  Episodio 3 de 12» con la portada, tiempo transcurrido y botón «Ver la serie».
+- Fuentes Torznab/RSS con idiomas preferidos (audio o subtítulos) y selector de releases.
+- Cursor animado (personajes propios o un GIF/APNG/WebP del usuario) y animaciones.
 - Tema oscuro y claro; diseño adaptable (en ventanas estrechas, dock inferior).
 
 ## Arquitectura
@@ -50,11 +52,15 @@ derecho a ver.
 
 ## Discord
 
-1. Crea una aplicación en <https://discord.com/developers/applications> (el nombre,
-   p. ej. «Anime TV», es lo que se muestra si Discord no puede mostrar la serie).
-2. Copia su **Application ID** en *Ajustes → Discord* y pulsa *Conectar*.
-3. Con Discord abierto en el mismo equipo, al ver un episodio tu perfil mostrará
-   la serie y el episodio.
+Con Discord abierto en el mismo equipo, la app se conecta sola (aplicación
+«Anime TV» de Discord, sin login):
+
+- navegando: logo de Anime TV y «Explorando el catálogo»;
+- viendo un episodio: portada de la serie, «Viendo _Serie_» y «Episodio 3 de 12».
+
+Si Discord se abre después, la app reintenta cada 30 s. En *Ajustes → Discord →
+Avanzado* se puede usar otra aplicación de Discord (su Application ID). No hace
+falta añadir la app a «Juegos registrados».
 
 ## Desarrollo
 

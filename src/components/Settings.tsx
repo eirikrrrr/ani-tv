@@ -1,7 +1,7 @@
 import { ImagePlus, Moon, Sun, X } from "lucide-react";
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { inTauri, type DiscordStatus } from "../discord";
+import { DEFAULT_CLIENT_ID, inTauri, type DiscordStatus } from "../discord";
 import type { Prefs, Source } from "../sources";
 import type { DiscordSettings, Look, Theme } from "../store";
 import { CURSORS, CursorPreview, MAX_CUSTOM_BYTES, type CustomCursor } from "./Cursor";
@@ -218,47 +218,43 @@ export function SettingsView(props: {
           Compartir lo que veo en Discord
         </label>
 
-        <label className="mt-5 block text-[14px] text-muted">Application ID de Discord</label>
-        <div className="mt-1.5 flex gap-3 max-sm:flex-col">
-          <input
-            value={d.clientId}
-            onChange={(e) => props.onDiscord({ ...d, clientId: e.target.value.replace(/\D/g, "") })}
-            placeholder="p. ej. 1234567890123456789"
-            inputMode="numeric"
-            className="h-12 flex-1 rounded-2xl border border-line bg-panel-2 px-4 text-[15px] outline-none focus:border-accent"
-          />
+        <div className="mt-5 flex items-center gap-4">
+          <p className="flex-1 text-[14.5px]">
+            Estado:{" "}
+            <span className={props.status === "on" ? "text-emerald-500" : props.status === "error" ? "text-amber-500" : "text-muted"}>
+              {STATUS[props.status]}
+            </span>
+            {props.error && <span className="block text-[13px] text-muted">{props.error}. Se reintenta solo cada 30 s.</span>}
+            {!inTauri && <span className="block text-[13px] text-muted">Solo disponible en la app de escritorio.</span>}
+          </p>
           {props.status === "on" ? (
-            <button onClick={props.onDisconnect} className="h-12 rounded-full bg-panel-2 px-6 text-[15px] hover:text-accent">
+            <button onClick={props.onDisconnect} className="h-11 shrink-0 rounded-full bg-panel-2 px-6 text-[15px] hover:text-accent">
               Desconectar
             </button>
           ) : (
             <button
               onClick={props.onConnect}
-              disabled={!d.clientId || props.status === "connecting" || !inTauri}
-              className="h-12 rounded-full bg-accent px-6 text-[15px] font-medium text-white disabled:opacity-50"
+              disabled={props.status === "connecting" || !inTauri}
+              className="h-11 shrink-0 rounded-full bg-accent px-6 text-[15px] font-medium text-white disabled:opacity-50"
             >
               Conectar
             </button>
           )}
         </div>
-        <p className="mt-3 text-[14px]">
-          Estado:{" "}
-          <span className={props.status === "on" ? "text-emerald-500" : props.status === "error" ? "text-amber-500" : "text-muted"}>
-            {STATUS[props.status]}
-          </span>
-          {props.error && <span className="block text-[13px] text-muted">{props.error}</span>}
-          {!inTauri && <span className="block text-[13px] text-muted">Solo disponible en la app de escritorio.</span>}
-        </p>
-        <details className="mt-4 text-[14px] text-muted">
-          <summary className="cursor-pointer hover:text-text">¿De dónde saco el Application ID?</summary>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>
-              Entra en <span className="text-text select-all">discord.com/developers/applications</span> y pulsa{" "}
-              <em>New Application</em>.
-            </li>
-            <li>Ponle de nombre «Anime TV» (es lo que se ve si Discord no puede mostrar la serie).</li>
-            <li>Copia el <em>Application ID</em> de la pestaña General Information y pégalo aquí.</li>
-          </ol>
+        <details className="mt-5 text-[14px] text-muted">
+          <summary className="cursor-pointer hover:text-text">Avanzado: usar mi propia aplicación de Discord</summary>
+          <p className="mt-2">
+            Por defecto se usa la aplicación «Anime TV». Si creas la tuya en{" "}
+            <span className="text-text select-all">discord.com/developers/applications</span> (su nombre e icono son los que se ven en
+            tu perfil), pega aquí su <em>Application ID</em> y pulsa Conectar.
+          </p>
+          <input
+            value={d.clientId}
+            onChange={(e) => props.onDiscord({ ...d, clientId: e.target.value.replace(/\D/g, "") })}
+            placeholder={`${DEFAULT_CLIENT_ID} (Anime TV)`}
+            inputMode="numeric"
+            className="mt-3 h-11 w-full rounded-2xl border border-line bg-panel-2 px-4 text-[15px] text-text outline-none focus:border-accent"
+          />
         </details>
       </Card>
 

@@ -97,11 +97,11 @@ export default function App() {
 
   // ---- Discord ----------------------------------------------------------
   const connectDiscord = useCallback(async () => {
-    if (!dsettings.clientId) return;
+    const clientId = dsettings.clientId || discord.DEFAULT_CLIENT_ID;
     setDstatus("connecting");
     setDerror(null);
     try {
-      await discord.connect(dsettings.clientId);
+      await discord.connect(clientId);
       setDstatus("on");
     } catch (e) {
       setDstatus("error");
@@ -111,8 +111,15 @@ export default function App() {
 
   // connect on start when the user already set it up
   useEffect(() => {
-    if (discord.inTauri && dsettings.enabled && dsettings.clientId) connectDiscord();
+    if (discord.inTauri && dsettings.enabled) connectDiscord();
   }, []);
+
+  // Discord may be opened after the app: retry every 30 s while it is enabled
+  useEffect(() => {
+    if (!discord.inTauri || !dsettings.enabled || dstatus !== "error") return;
+    const t = setInterval(connectDiscord, 30_000);
+    return () => clearInterval(t);
+  }, [dstatus, dsettings.enabled, connectDiscord]);
 
   // keep the Discord status in sync: the app logo while browsing, the
   // series cover and "Watching <series>" while watching

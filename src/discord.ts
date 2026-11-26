@@ -17,6 +17,10 @@ export type Presence = {
 
 export type DiscordStatus = "off" | "connecting" | "on" | "error";
 
+/** The Anime TV application in the Discord Developer Portal (public, not a
+ *  secret). Users can override it with their own in Settings → Discord. */
+export const DEFAULT_CLIENT_ID = "1575656237314609202";
+
 /** Public HTTPS images/links Discord shows (it fetches them itself). */
 export const LOGO_URL = "https://raw.githubusercontent.com/eirikrrrr/ani-tv/main/src-tauri/icons/icon.png";
 export const APP_URL = "https://github.com/eirikrrrr/ani-tv/releases";
