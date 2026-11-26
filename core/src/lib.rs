@@ -3,7 +3,10 @@
 //!
 //! - `discord`: Rich Presence ("Watching <series>").
 //! - `release`: release-name parsing (episode, resolution, languages).
-//! - next: `sources` (Torznab, RSS) and `rank` (match + order by preferences).
+//! - `sources`: user-configured sources (Torznab, RSS) → normalized releases.
+//! - `rank`: match releases to an episode and order them by preferences.
 
 pub mod discord;
+pub mod rank;
 pub mod release;
+pub mod sources;

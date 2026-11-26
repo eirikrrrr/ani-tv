@@ -2,11 +2,18 @@
 name = "anime-tv-core"
 version = "0.1.0"
 edition = "2021"
-description = "Anime TV core: Discord Rich Presence and release-name parsing"
+description = "Anime TV core: Discord Rich Presence, sources (Torznab/RSS), release-name parsing and ranking"
 license = "MIT"
 
 [dependencies]
 discord-rich-presence = "1.1"
 serde = { version = "1", features = ["derive"] }
 regex = "1"
+roxmltree = "0.20"
+# rustls + ring: no OpenSSL or CMake needed on any OS
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
+futures = "0.3"
+url = "2"
 
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
