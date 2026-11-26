@@ -31,10 +31,13 @@ export function useStored<T>(key: string, initial: T) {
 }
 
 /** The bits of a series kept offline (list views, "continue watching"). */
-export type Saved = Pick<Media, "id" | "title" | "cover" | "banner" | "episodes" | "siteUrl" | "year" | "format">;
+export type Saved = Pick<Media, "id" | "title" | "cover" | "banner" | "episodes" | "siteUrl" | "year" | "format"> & {
+  /** romaji title, the one most release names use (missing in old saves) */
+  romaji?: string;
+};
 
 export const toSaved = (m: Media): Saved => ({
-  id: m.id, title: m.title, cover: m.cover, banner: m.banner,
+  id: m.id, title: m.title, romaji: m.romaji, cover: m.cover, banner: m.banner,
   episodes: m.episodes, siteUrl: m.siteUrl, year: m.year, format: m.format,
 });
 

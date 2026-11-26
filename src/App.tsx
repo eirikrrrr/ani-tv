@@ -3,8 +3,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { currentSeason, genreLabel, GENRES, list, type ListQuery, type Media } from "./anilist";
 import { Dock, Sidebar, TopBar, type ViewKind } from "./components/Chrome";
 import { Details, Empty, Hero, NowWatching, PosterGrid, SectionTitle, WideRow, type Now } from "./components/Media";
+import { Picker, type PickTarget } from "./components/Picker";
 import { SettingsView } from "./components/Settings";
 import * as discord from "./discord";
+import { DEFAULT_PREFS, type Prefs, type Ranked, type Source } from "./sources";
 import { toSaved, useStored, type DiscordSettings, type Progress, type Saved, type Theme } from "./store";
 
 const CATEGORIES: { id: string; label: string; badge: string; q: ListQuery }[] = [
@@ -23,6 +25,10 @@ export default function App() {
   const [favorites, setFavorites] = useStored<Saved[]>("favorites", []);
   const [progress, setProgress] = useStored<Progress[]>("progress", []);
   const [dsettings, setDsettings] = useStored<DiscordSettings>("discord", { enabled: true, clientId: "" });
+  const [sources, setSources] = useStored<Source[]>("sources", []);
+  const [prefs, setPrefs] = useStored<Prefs>("prefs", DEFAULT_PREFS);
+  const [pick, setPick] = useState<PickTarget | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const [view, setView] = useState<View>({ kind: "home" });
   const [back, setBack] = useState<View>({ kind: "home" });
@@ -129,6 +135,32 @@ export default function App() {
     setProgress((ps) => [{ ...s, episode: ep, updatedAt: Date.now() }, ...ps.filter((p) => p.id !== s.id)].slice(0, 30));
   };
 
+  // every "watch" goes through the release picker for that episode
+  const choose = (m: Media | Saved, episode?: number) => {
+    const s: Saved = "description" in m ? toSaved(m) : m;
+    setPick({ media: s, episode: episode ?? progressOf(m.id)?.episode ?? 1 });
+  };
+  const notify = useCallback((text: string) => setToast(text), []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
+  const onPicked = async (r: Ranked | null) => {
+    if (!pick) return;
+    if (r) {
+      const link = r.magnet ?? r.torrentUrl ?? "";
+      try {
+        await navigator.clipboard.writeText(link);
+        notify("Enlace copiado · episodio marcado como «viendo»");
+      } catch {
+        notify("Episodio marcado como «viendo»");
+      }
+    }
+    watch(pick.media, pick.episode);
+    setPick(null);
+  };
+
   // ---- render -----------------------------------------------------------
   let content: ReactNode;
   switch (view.kind) {
@@ -141,12 +173,12 @@ export default function App() {
             items={heroItems}
             badge={cat.badge}
             isFavorite={isFavorite}
-            onWatch={(m) => watch(m)}
+            onWatch={(m) => choose(m)}
             onOpen={openDetail}
             onFavorite={toggleFavorite}
           />
           <SectionTitle title="Te puede gustar" action="Ver todo" onAction={() => go({ kind: "explore" })} />
-          <WideRow items={rest.slice(0, 9)} onOpen={openDetail} onWatch={(m) => watch(m)} />
+          <WideRow items={rest.slice(0, 9)} onOpen={openDetail} onWatch={(m) => choose(m)} />
           <SectionTitle title={`Más en ${cat.label.toLowerCase()}`} />
           <PosterGrid items={rest.slice(9)} onOpen={openDetail} loading={items.length === 0} />
         </>
@@ -211,6 +243,10 @@ export default function App() {
           status={dstatus}
           error={derror}
           onConnect={connectDiscord}
+          sources={sources}
+          onSources={setSources}
+          prefs={prefs}
+          onPrefs={setPrefs}
           onDisconnect={() => {
             discord.disconnect();
             setDstatus("off");
@@ -227,7 +263,7 @@ export default function App() {
           current={now && now.media.id === view.id ? now.episode : null}
           isFavorite={isFavorite(view.id!)}
           onBack={() => go(back)}
-          onWatch={(m, ep) => watch(m, ep)}
+          onWatch={(m, ep) => choose(m, ep)}
           onFavorite={toggleFavorite}
         />
       );
@@ -258,7 +294,7 @@ export default function App() {
           view={view.kind}
           onView={(k) => go({ kind: k })}
           progress={progress.slice(0, 8)}
-          onResume={(p) => watch(p, p.episode)}
+          onResume={(p) => choose(p, p.episode)}
           onOpen={openDetail}
         />
         <main id="main" className="min-w-0 flex-1 overflow-y-auto pr-1 max-md:pb-24">
@@ -268,13 +304,33 @@ export default function App() {
               now={playing}
               discord={dsettings.enabled ? dstatus : "off"}
               onOpen={openDetail}
-              onEpisode={(ep) => watch(playing.media, ep)}
+              onEpisode={(ep) => choose(playing.media, ep)}
               onStop={() => setNow(null)}
             />
           )}
         </main>
       </div>
       <Dock view={view.kind} onView={(k) => go({ kind: k })} />
+      {pick && (
+        <Picker
+          target={pick}
+          sources={sources}
+          prefs={prefs}
+          onClose={() => setPick(null)}
+          onPlay={onPicked}
+          onSettings={() => {
+            setPick(null);
+            go({ kind: "settings" });
+            setTimeout(() => document.getElementById("sources")?.scrollIntoView({ behavior: "smooth" }), 50);
+          }}
+          notify={notify}
+        />
+      )}
+      {toast && (
+        <div className="fade-in fixed top-20 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-invert px-5 py-3 text-[14.5px] text-invert-ink shadow-soft">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

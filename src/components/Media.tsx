@@ -312,7 +312,7 @@ export function NowWatching(props: {
           </span>
         </span>
       </button>
-      <span className="hidden text-[13px] text-muted lg:block">El reproductor llega en la fase 2</span>
+      <span className="hidden text-[13px] text-muted lg:block">El reproductor integrado llega en la próxima alpha</span>
       <div className="flex items-center gap-1.5">
         <button
           disabled={episode <= 1}

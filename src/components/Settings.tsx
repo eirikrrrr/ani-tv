@@ -1,7 +1,9 @@
-import { Moon, Rss, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { inTauri, type DiscordStatus } from "../discord";
+import type { Prefs, Source } from "../sources";
 import type { DiscordSettings, Theme } from "../store";
+import { LanguagePrefs, SourcesList } from "./SourcesSettings";
 
 function Card(props: { title: string; text?: string; children: ReactNode; id?: string }) {
   return (
@@ -29,6 +31,10 @@ export function SettingsView(props: {
   error: string | null;
   onConnect: () => void;
   onDisconnect: () => void;
+  sources: Source[];
+  onSources: (s: Source[]) => void;
+  prefs: Prefs;
+  onPrefs: (p: Prefs) => void;
 }) {
   const d = props.discord;
   const seg = (t: Theme, label: string, icon: ReactNode) => (
@@ -111,10 +117,20 @@ export function SettingsView(props: {
         </details>
       </Card>
 
-      <Card title="Fuentes" text="Indexadores o feeds RSS de donde la app busca episodios. Los añades tú.">
-        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-line p-4 text-[14.5px] text-muted">
-          <Rss size={18} className="text-accent" /> Llega en la fase 2, junto con el streaming.
-        </div>
+      <Card
+        id="languages"
+        title="Idiomas preferidos"
+        text="Al elegir un episodio, primero se muestran los releases en estos idiomas, en este orden."
+      >
+        <LanguagePrefs prefs={props.prefs} onChange={props.onPrefs} />
+      </Card>
+
+      <Card
+        id="sources"
+        title="Fuentes"
+        text="Indexadores Torznab (Prowlarr, Jackett) o feeds RSS donde la app busca los episodios. Se guardan solo en este equipo."
+      >
+        <SourcesList sources={props.sources} onChange={props.onSources} />
       </Card>
 
       <Card title="Acerca de">

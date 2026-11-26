@@ -4,6 +4,9 @@
 use std::sync::Mutex;
 
 use anime_tv_core::discord::{Discord, Presence};
+use anime_tv_core::rank::{rank, Prefs, Ranked, Wanted};
+use anime_tv_core::sources::{search_all, search_source, Source, SourceError};
+use serde::Serialize;
 use tauri::{Manager, RunEvent, State};
 
 #[derive(Default)]
@@ -53,6 +56,29 @@ fn discord_disconnect(state: State<'_, AppState>) {
     }
 }
 
+#[derive(Serialize)]
+struct SearchResult {
+    results: Vec<Ranked>,
+    errors: Vec<SourceError>,
+    /// releases the sources returned before filtering by series/episode
+    total: usize,
+}
+
+/// Searches every enabled source for an episode and returns the matching
+/// releases, best first by the user's preferences.
+#[tauri::command]
+async fn sources_search(sources: Vec<Source>, wanted: Wanted, prefs: Prefs) -> Result<SearchResult, String> {
+    let out = search_all(&sources, &wanted.titles).await;
+    let total = out.releases.len();
+    Ok(SearchResult { results: rank(out.releases, &wanted, &prefs), errors: out.errors, total })
+}
+
+/// "Probar" in Settings: fetches the latest items of one source.
+#[tauri::command]
+async fn source_test(source: Source) -> Result<usize, String> {
+    search_source(&source, "").await.map(|r| r.len()).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -61,7 +87,9 @@ pub fn run() {
             discord_connect,
             discord_set,
             discord_clear,
-            discord_disconnect
+            discord_disconnect,
+            sources_search,
+            source_test
         ])
         .build(tauri::generate_context!())
         .expect("error while building the app")
