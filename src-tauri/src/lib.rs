@@ -3,7 +3,7 @@
 
 use std::sync::Mutex;
 
-use anime_tv_core::discord::{Discord, Presence};
+use anime_tv_core::discord::{Discord, Idle, Presence};
 use anime_tv_core::rank::{rank, Prefs, Ranked, Wanted};
 use anime_tv_core::sources::{search_all, search_source, Source, SourceError};
 use serde::Serialize;
@@ -34,6 +34,15 @@ fn discord_set(state: State<'_, AppState>, presence: Presence) -> Result<(), Str
     let mut slot = state.discord.lock().map_err(|e| e.to_string())?;
     match slot.as_mut() {
         Some(d) => d.set(&presence).map_err(|e| e.to_string()),
+        None => Err("Discord no está conectado".into()),
+    }
+}
+
+#[tauri::command(async)]
+fn discord_idle(state: State<'_, AppState>, idle: Idle) -> Result<(), String> {
+    let mut slot = state.discord.lock().map_err(|e| e.to_string())?;
+    match slot.as_mut() {
+        Some(d) => d.set_idle(&idle).map_err(|e| e.to_string()),
         None => Err("Discord no está conectado".into()),
     }
 }
@@ -86,6 +95,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             discord_connect,
             discord_set,
+            discord_idle,
             discord_clear,
             discord_disconnect,
             sources_search,

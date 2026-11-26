@@ -28,7 +28,27 @@ pub struct Presence {
     pub info_url: Option<String>,
     /// When playback started, Unix milliseconds (shows the elapsed time).
     pub started_at: Option<i64>,
+    /// The app logo (public HTTPS URL), shown small over the cover.
+    #[serde(default)]
+    pub logo_url: Option<String>,
 }
+
+/// Nothing playing: the profile shows the app logo and what the user is doing.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Idle {
+    /// e.g. "Explorando el catálogo"
+    pub text: String,
+    /// The app logo (public HTTPS URL).
+    pub logo_url: Option<String>,
+    /// When the app was opened, Unix milliseconds.
+    pub started_at: Option<i64>,
+    /// Where friends can get the app, shown as a button.
+    pub app_url: Option<String>,
+}
+
+/// Name shown next to the logo and on the small image.
+pub const APP_NAME: &str = "Anime TV";
 
 #[derive(Debug)]
 pub enum Error {
@@ -115,6 +135,9 @@ impl Discord {
             if let Some(url) = p.cover_url.as_deref() {
                 assets = assets.large_image(url);
             }
+            if let Some(logo) = p.logo_url.as_deref() {
+                assets = assets.small_image(logo).small_text(APP_NAME);
+            }
             let mut a = Activity::new()
                 .activity_type(ActivityType::Watching)
                 // the member list shows "Watching <series>" instead of the app name
@@ -129,6 +152,30 @@ impl Discord {
             }
             if let Some(url) = p.info_url.as_deref() {
                 a = a.buttons(vec![Button::new("Ver la serie", url)]);
+            }
+            c.set_activity(a)
+        })
+    }
+
+    /// The resting state: app logo, "Watching Anime TV" and a status line.
+    pub fn set_idle(&mut self, idle: &Idle) -> Result<(), Error> {
+        self.with_retry(|c| {
+            let text = field(&idle.text);
+            let mut assets = Assets::new().large_text(APP_NAME);
+            if let Some(logo) = idle.logo_url.as_deref() {
+                assets = assets.large_image(logo);
+            }
+            let mut a = Activity::new()
+                .activity_type(ActivityType::Watching)
+                // the member list shows "Watching Anime TV"
+                .status_display_type(StatusDisplayType::Name)
+                .details(text.as_str())
+                .assets(assets);
+            if let Some(ms) = idle.started_at {
+                a = a.timestamps(Timestamps::new().start(ms));
+            }
+            if let Some(url) = idle.app_url.as_deref() {
+                a = a.buttons(vec![Button::new("Descargar Anime TV", url)]);
             }
             c.set_activity(a)
         })
@@ -172,6 +219,7 @@ mod tests {
             cover_url: None,
             info_url: None,
             started_at: None,
+            logo_url: None,
         }
     }
 

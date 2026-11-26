@@ -105,11 +105,22 @@ export default function App() {
     if (discord.inTauri && dsettings.enabled && dsettings.clientId) connectDiscord();
   }, []);
 
-  // keep the Discord status in sync with what is being watched
+  // keep the Discord status in sync: the app logo while browsing, the
+  // series cover and "Watching <series>" while watching
   useEffect(() => {
     if (!discord.inTauri || dstatus !== "on") return;
-    if (!now || !dsettings.enabled) {
+    if (!dsettings.enabled) {
       discord.clearPresence();
+      return;
+    }
+    const fail = (e: Error) => {
+      setDstatus("error");
+      setDerror(e.message);
+    };
+    if (!now) {
+      discord
+        .setIdle({ text: "Explorando el catálogo", logoUrl: discord.LOGO_URL, startedAt: discord.OPENED_AT, appUrl: discord.APP_URL })
+        .catch(fail);
       return;
     }
     discord
@@ -120,11 +131,9 @@ export default function App() {
         coverUrl: now.media.cover,
         infoUrl: now.media.siteUrl,
         startedAt: now.startedAt,
+        logoUrl: discord.LOGO_URL,
       })
-      .catch((e: Error) => {
-        setDstatus("error");
-        setDerror(e.message);
-      });
+      .catch(fail);
   }, [now, dstatus, dsettings.enabled]);
 
   // ---- watching ---------------------------------------------------------

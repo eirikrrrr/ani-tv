@@ -12,9 +12,18 @@ export type Presence = {
   coverUrl?: string;
   infoUrl?: string;
   startedAt?: number;
+  logoUrl?: string;
 };
 
 export type DiscordStatus = "off" | "connecting" | "on" | "error";
+
+/** Public HTTPS images/links Discord shows (it fetches them itself). */
+export const LOGO_URL = "https://raw.githubusercontent.com/eirikrrrr/ani-tv/main/src-tauri/icons/icon.png";
+export const APP_URL = "https://github.com/eirikrrrr/ani-tv/releases";
+/** When the app was opened: the idle status shows the elapsed time. */
+export const OPENED_AT = Date.now();
+
+export type Idle = { text: string; logoUrl?: string; startedAt?: number; appUrl?: string };
 
 const err = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
 
@@ -31,6 +40,15 @@ export async function setPresence(p: Presence): Promise<void> {
   if (!inTauri) return;
   try {
     await invoke("discord_set", { presence: p });
+  } catch (e) {
+    throw new Error(err(e));
+  }
+}
+
+export async function setIdle(i: Idle): Promise<void> {
+  if (!inTauri) return;
+  try {
+    await invoke("discord_idle", { idle: i });
   } catch (e) {
     throw new Error(err(e));
   }

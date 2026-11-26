@@ -61,7 +61,7 @@ export function SettingsView(props: {
       <Card
         id="discord"
         title="Discord"
-        text="Muestra en tu perfil de Discord la serie y el episodio que estás viendo, con su portada. Necesita Discord abierto en este equipo."
+        text="Mientras navegas, tu perfil muestra el logo de Anime TV; al ver un episodio cambia a la portada de la serie y «Viendo …». Necesita Discord abierto en este equipo; no hace falta añadir la app a Juegos registrados."
       >
         <label className="flex items-center gap-3 text-[15px]">
           <input
