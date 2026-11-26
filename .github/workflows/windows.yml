@@ -1,0 +1,59 @@
+# Builds the Windows app on every push to main (and on demand from the Actions
+# tab). Download the result from the run's "Artifacts" section: anime-tv-windows
+# holds the installers (NSIS .exe, MSI) and a portable .exe.
+# Windows binaries are built on Windows (WebView2 + MSVC).
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Test the core
+        run: cargo test -p anime-tv-core
+
+      - name: Build the Tauri app
+        run: npm run tauri build
+
+      - name: Collect the build
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          Copy-Item src-tauri/target/release/bundle/nsis/*.exe build/
+          Copy-Item src-tauri/target/release/bundle/msi/*.msi build/
+          Copy-Item src-tauri/target/release/anime-tv.exe build/anime-tv-portable.exe
+          Get-ChildItem build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anime-tv-windows
+          path: build/*
+          if-no-files-found: error

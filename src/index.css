@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* Palette: dark by default, light via [data-theme="light"] on <html>.
+   Tailwind tokens point at these vars, so `bg-panel`, `text-muted`… follow the theme. */
+:root,
+[data-theme="dark"] {
+  --atv-bg: #0b0b0e;
+  --atv-panel: #15151a;
+  --atv-panel-2: #1e1e25;
+  --atv-line: #2a2a33;
+  --atv-text: #f3f3f6;
+  --atv-muted: #9797a3;
+  --atv-accent: #e5162a;
+  --atv-accent-soft: rgb(229 22 42 / 0.14);
+  --atv-invert: #ffffff;
+  --atv-invert-ink: #0b0b0e;
+  --atv-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --atv-bg: #e9e9ec;
+  --atv-panel: #ffffff;
+  --atv-panel-2: #f2f2f5;
+  --atv-line: #e2e2e7;
+  --atv-text: #141418;
+  --atv-muted: #6c6c78;
+  --atv-accent: #e3101f;
+  --atv-accent-soft: rgb(227 16 31 / 0.09);
+  --atv-invert: #141418;
+  --atv-invert-ink: #ffffff;
+  --atv-shadow: 0 10px 30px rgb(20 20 30 / 0.08);
+  color-scheme: light;
+}
+
+@theme {
+  --color-bg: var(--atv-bg);
+  --color-panel: var(--atv-panel);
+  --color-panel-2: var(--atv-panel-2);
+  --color-line: var(--atv-line);
+  --color-text: var(--atv-text);
+  --color-muted: var(--atv-muted);
+  --color-accent: var(--atv-accent);
+  --color-accent-soft: var(--atv-accent-soft);
+  --color-invert: var(--atv-invert);
+  --color-invert-ink: var(--atv-invert-ink);
+  --font-sans: "Outfit", system-ui, sans-serif;
+  --shadow-soft: var(--atv-shadow);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--atv-bg);
+  color: var(--atv-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* thin scrollbars that follow the theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--atv-line) transparent;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes atv-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-in {
+  animation: atv-fade 0.35s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in {
+    animation: none;
+  }
+}

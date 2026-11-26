@@ -1,0 +1,12 @@
+[package]
+name = "anime-tv-core"
+version = "0.1.0"
+edition = "2021"
+description = "Anime TV core: Discord Rich Presence and release-name parsing"
+license = "MIT"
+
+[dependencies]
+discord-rich-presence = "1.1"
+serde = { version = "1", features = ["derive"] }
+regex = "1"
+
