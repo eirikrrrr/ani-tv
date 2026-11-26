@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::release::{normalize, Lang};
+use crate::release::{normalize, strip_season, Lang};
 use crate::sources::Release;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,11 +73,11 @@ pub struct Ranked {
 /// "Sousou no Frieren" matches "Frieren" and vice versa, but short noise like
 /// "TV" never matches anything.
 pub fn title_matches(release_title: &str, wanted: &[String]) -> bool {
-    let r = normalize(release_title);
+    let r = normalize(&strip_season(release_title).0);
     if r.len() < 3 {
         return false;
     }
-    wanted.iter().map(|w| normalize(w)).filter(|w| w.len() >= 3).any(|w| r.contains(&w) || w.contains(&r))
+    wanted.iter().map(|w| normalize(&strip_season(w).0)).filter(|w| w.len() >= 3).any(|w| r.contains(&w) || w.contains(&r))
 }
 
 /// Subtitle languages a release effectively has: Multi counts for any.
@@ -124,14 +124,27 @@ fn score(r: &Release, lm: Option<usize>, prefs: &Prefs, wanted: &Wanted) -> i64 
     s
 }
 
+impl Wanted {
+    /// The season asked for, or the one the titles imply ("2nd Season").
+    pub fn season(&self) -> Option<u32> {
+        self.season.or_else(|| self.titles.iter().find_map(|t| strip_season(t).1))
+    }
+}
+
 /// Keeps the releases of the wanted series/episode, best first.
 pub fn rank(releases: Vec<Release>, wanted: &Wanted, prefs: &Prefs) -> Vec<Ranked> {
+    let season = wanted.season();
     let mut out: Vec<Ranked> = releases
         .into_iter()
         .filter(|r| title_matches(&r.parsed.title, &wanted.titles))
-        .filter(|r| match (wanted.season, r.parsed.season) {
-            (Some(a), Some(b)) => a == b,
-            _ => true,
+        .filter(|r| {
+            let got = r.parsed.season.or_else(|| strip_season(&r.parsed.title).1);
+            match (season, got) {
+                (Some(a), Some(b)) => a == b,
+                // untagged releases are season 1 (sequels are tagged S2, 2nd Season…)
+                (Some(a), None) => a == 1,
+                _ => true,
+            }
         })
         .filter(|r| match wanted.episode {
             Some(ep) => r.parsed.has_episode(ep) || (prefs.batches && r.parsed.batch && r.parsed.episode.is_none()),
@@ -248,6 +261,21 @@ mod tests {
         let out = rank(rs, &wanted(Some(1)), &Prefs::default());
         assert_eq!(titles(&out)[0], "[C] Frieren - 01 [1080p] [ENG]");
         assert_eq!(titles(&out)[2], "[A] Frieren - 01 [1080p] [ENG]");
+    }
+
+    #[test]
+    fn sequels_match_by_season() {
+        let w = Wanted { titles: vec!["Sousou no Frieren 2nd Season".into()], episode: Some(5), season: None };
+        let rs = vec![
+            rel("[A] Sousou no Frieren S2 - 05 [1080p] [ENG]", 100),
+            rel("[B] Sousou no Frieren Season 1 - 05 [1080p] [ENG]", 100),
+            rel("[C] Sousou no Frieren 2nd Season - 05 [1080p] [ENG]", 100),
+            rel("[D] Sousou no Frieren - 05 [1080p] [ENG]", 100),
+        ];
+        let out = rank(rs, &w, &Prefs::default());
+        let mut t = titles(&out);
+        t.sort();
+        assert_eq!(t, vec!["[A] Sousou no Frieren S2 - 05 [1080p] [ENG]", "[C] Sousou no Frieren 2nd Season - 05 [1080p] [ENG]"]);
     }
 
     #[test]

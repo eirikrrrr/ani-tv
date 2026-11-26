@@ -88,6 +88,7 @@ re!(WORD_EP, r"(?i)\b(?:ep|eps|episode|episodio|cap|capitulo|capítulo|e)\.?\s*(
 re!(RANGE, r"(?:^|\s)(\d{1,4})\s*(?:-|~)\s*(\d{1,4})(?:\s|$)");
 re!(TRAILING_NUM, r"\s(\d{1,4})(?:v(\d))?\s*$");
 re!(SEASON, r"(?i)\b(?:s|season|temporada|saison)\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s+season\b");
+re!(SEASON_ROMAN, r"(?i)\s(ii|iii|iv|v|vi)$");
 re!(BATCH, r"(?i)\b(batch|complete|completa|completo|integral|todos los cap[ií]tulos)\b");
 re!(SPACES, r"\s+");
 
@@ -306,6 +307,29 @@ pub fn parse(name: &str) -> ParsedName {
     p
 }
 
+/// "Frieren 2nd Season" → ("Frieren", Some(2)); also "Season 2", "S2",
+/// "Temporada 2" and a trailing roman numeral ("Overlord II").
+pub fn strip_season(title: &str) -> (String, Option<u32>) {
+    let mut season = None;
+    let mut t = title.to_string();
+    if let Some(c) = SEASON.captures(&t) {
+        season = c.get(1).or(c.get(2)).and_then(|m| m.as_str().parse().ok());
+        t = SEASON.replace(&t, " ").into_owned();
+    } else if let Some(c) = SEASON_ROMAN.captures(t.trim_end()) {
+        season = match c[1].to_ascii_lowercase().as_str() {
+            "ii" => Some(2),
+            "iii" => Some(3),
+            "iv" => Some(4),
+            "v" => Some(5),
+            "vi" => Some(6),
+            _ => None,
+        };
+        t = SEASON_ROMAN.replace(t.trim_end(), "").into_owned();
+    }
+    let t = SPACES.replace_all(t.trim(), " ");
+    (t.trim_end_matches([':', '-', ' ']).to_string(), season)
+}
+
 /// Lowercase alphanumerics only, for loose title comparison.
 pub fn normalize(s: &str) -> String {
     s.chars()
@@ -396,6 +420,17 @@ mod tests {
 
         let p = parse("Some Movie 2023 [1080p]");
         assert_eq!(p.episode, None);
+    }
+
+    #[test]
+    fn seasons_in_titles() {
+        assert_eq!(strip_season("Sousou no Frieren 2nd Season"), ("Sousou no Frieren".into(), Some(2)));
+        assert_eq!(strip_season("Frieren Season 3"), ("Frieren".into(), Some(3)));
+        assert_eq!(strip_season("Frieren S2"), ("Frieren".into(), Some(2)));
+        assert_eq!(strip_season("Overlord II"), ("Overlord".into(), Some(2)));
+        assert_eq!(strip_season("Frieren"), ("Frieren".into(), None));
+        let p = parse("[G] Sousou no Frieren S2 - 05 [1080p]");
+        assert_eq!((p.season, p.episode), (Some(2), Some(5)));
     }
 
     #[test]
