@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Mutex;
 
-use anime_tv_core::torrent::{Engine, Opened, Status};
+use anime_tv_core::torrent::{Engine, EngineOptions, Opened, Status};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -49,9 +49,18 @@ pub struct EngineSettings {
     /// where episodes are downloaded; empty = the app's cache folder
     #[serde(default)]
     pub download_dir: Option<String>,
-    /// upload limit in KiB/s; None = unlimited
+    /// upload limit in KiB/s; None = unlimited, 0 = minimum
     #[serde(default)]
     pub upload_kib: Option<u32>,
+    /// download limit in KiB/s; None = unlimited
+    #[serde(default)]
+    pub download_kib: Option<u32>,
+    /// accept incoming peer connections (+ UPnP); applied when the engine
+    /// starts (first playback after launching the app)
+    #[serde(default)]
+    pub incoming: bool,
+    #[serde(default)]
+    pub upnp: bool,
 }
 
 async fn engine<'a>(app: &AppHandle, p: &'a Player, s: &EngineSettings) -> Result<&'a Engine, String> {
@@ -61,7 +70,14 @@ async fn engine<'a>(app: &AppHandle, p: &'a Player, s: &EngineSettings) -> Resul
                 Some(d) => PathBuf::from(d),
                 None => app.path().app_cache_dir().map_err(|e| e.to_string())?.join("downloads"),
             };
-            Engine::start(dir, s.upload_kib).await.map_err(|e| format!("no se pudo iniciar el motor torrent: {e}"))
+            let o = EngineOptions {
+                down_kib: s.download_kib,
+                up_kib: s.upload_kib,
+                incoming: s.incoming,
+                upnp: s.incoming && s.upnp,
+                peer_limit: None,
+            };
+            Engine::start(dir, o).await.map_err(|e| format!("no se pudo iniciar el motor torrent: {e}"))
         })
         .await
 }
@@ -86,6 +102,22 @@ pub async fn play_open(
 pub async fn play_status(player: State<'_, Player>, id: usize, file_idx: usize) -> Result<Status, String> {
     let e = player.engine.get().ok_or("el motor torrent no está iniciado")?;
     e.status(id, file_idx).map_err(|e| e.to_string())
+}
+
+/// Applies new speed limits to the running engine (no-op before it starts:
+/// play_open passes them then).
+#[tauri::command]
+pub fn engine_limits(player: State<'_, Player>, download_kib: Option<u32>, upload_kib: Option<u32>) {
+    if let Some(e) = player.engine.get() {
+        e.set_limits(download_kib, upload_kib);
+    }
+}
+
+/// Whether the engine is running and with which network mode, for Settings
+/// ("se aplica al reiniciar").
+#[tauri::command]
+pub fn engine_started(player: State<'_, Player>) -> bool {
+    player.engine.get().is_some()
 }
 
 /// Stops a torrent (and deletes its files when asked).

@@ -144,6 +144,8 @@ pub fn run() {
             player::play_open,
             player::play_status,
             player::play_close,
+            player::engine_limits,
+            player::engine_started,
             player::play_launch,
             player::play_stop,
             player::player_info,
