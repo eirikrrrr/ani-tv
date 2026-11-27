@@ -145,8 +145,26 @@ pub fn run() {
             player::play_status,
             player::play_close,
             player::play_launch,
-            player::play_stop
+            player::play_stop,
+            player::player_info,
+            player::player_cmd,
+            player::player_fullscreen
         ])
+        .setup(|app| {
+            // the embedded player follows the main window
+            if let Some(main) = app.get_webview_window("main") {
+                let handle = app.handle().clone();
+                main.on_window_event(move |e| {
+                    if matches!(
+                        e,
+                        tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. }
+                    ) {
+                        player::sync_geometry(&handle);
+                    }
+                });
+            }
+            Ok(())
+        })
         .build(tauri::generate_context!())
         .expect("error while building the app")
         .run(|app, event| {

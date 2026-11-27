@@ -1,9 +1,10 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window",
+  "description": "The main window and the embedded player's controls",
   "windows": [
-    "main"
+    "main",
+    "player-ui"
   ],
   "permissions": [
     "core:default",
