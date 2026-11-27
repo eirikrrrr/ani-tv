@@ -9,7 +9,9 @@ import { useCursorImages } from "./cursorStore";
 import { Picker, type PickTarget } from "./components/Picker";
 import { PlayerSession } from "./components/Player";
 import { DownloadsView } from "./components/Downloads";
-import { DEFAULT_DOWNLOADS, type DownloadSettings } from "./player";
+import * as player from "./player";
+import { DEFAULT_DOWNLOADS, normalizeDownloads, type DownloadSettings } from "./player";
+import { useSeeding } from "./seeding";
 import { SettingsView } from "./components/Settings";
 import * as discord from "./discord";
 import { DEFAULT_CATALOGS, DEFAULT_PREFS, type Catalog, type Prefs, type Ranked, type Source } from "./sources";
@@ -39,7 +41,9 @@ export default function App() {
   const cursorImages = useCursorImages(customCursors);
   const cursorImage = look.cursor.startsWith("custom:") ? cursorImages[look.cursor.slice(7)] ?? null : null;
   const [pick, setPick] = useState<PickTarget | null>(null);
-  const [downloads, setDownloads] = useStored<DownloadSettings>("downloads", DEFAULT_DOWNLOADS);
+  const [storedDownloads, setDownloads] = useStored<DownloadSettings>("downloads", DEFAULT_DOWNLOADS);
+  const downloads = useMemo(() => normalizeDownloads(storedDownloads), [storedDownloads]);
+  const seeding = useSeeding(downloads);
   const [session, setSession] = useState<{ target: PickTarget; release: Ranked; key: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -190,6 +194,12 @@ export default function App() {
     setPick(null);
   };
 
+  // speed limits follow what is happening: watching or only sharing
+  const watching = !!session;
+  useEffect(() => {
+    player.limits(downloads.downloadKib, watching ? downloads.uploadKib : downloads.seed.uploadKib);
+  }, [watching, downloads.downloadKib, downloads.uploadKib, downloads.seed.uploadKib]);
+
   // ---- render -----------------------------------------------------------
   let content: ReactNode;
   switch (view.kind) {
@@ -255,7 +265,7 @@ export default function App() {
       );
       break;
     case "downloads":
-      content = <DownloadsView settings={downloads} onSettings={setDownloads} />;
+      content = <DownloadsView settings={downloads} onSettings={setDownloads} seeding={seeding} />;
       break;
     case "addons":
       content = <AddonsView sources={sources} onSources={setSources} catalogs={catalogs} onCatalogs={setCatalogs} notify={notify} />;
@@ -379,6 +389,16 @@ export default function App() {
               : null
           }
           onRepick={() => choose(session.target.media, session.target.episode)}
+          onOpened={(o) => seeding.claim(o.id)}
+          onRelease={(o) =>
+            seeding.release({
+              id: o.id,
+              fileIdx: o.fileIdx,
+              series: session.target.media.title,
+              episode: session.target.episode,
+              cover: session.target.media.cover,
+            })
+          }
           onEnd={() => {
             setSession(null);
             setNow(null);

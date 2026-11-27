@@ -32,6 +32,10 @@ export function PlayerSession(props: {
   onNext: (() => void) | null;
   /** back to the release list for this episode */
   onRepick: () => void;
+  /** the torrent is open (it may be one that was being shared) */
+  onOpened: (o: Opened) => void;
+  /** the player is done with the torrent: share it or close it */
+  onRelease: (o: Opened) => void;
   onEnd: () => void;
 }) {
   const { media, episode } = props.target;
@@ -95,6 +99,7 @@ export function PlayerSession(props: {
           launch(o.url);
           return;
         }
+        props.onOpened(o);
         setOpened(o);
         setPhase("buffering");
       })
@@ -147,7 +152,7 @@ export function PlayerSession(props: {
     if (ended.current) return;
     ended.current = true;
     await player.stop().catch(() => {});
-    if (opened && !opened.direct) await player.close(opened.id, props.downloads.deleteAfter).catch(() => {});
+    if (opened && !opened.direct) props.onRelease(opened);
     props.onEnd();
   };
   const next = async () => {
