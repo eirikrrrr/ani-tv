@@ -5,6 +5,7 @@ import { DEFAULT_CLIENT_ID, inTauri, type DiscordStatus } from "../discord";
 import type { Prefs, Source } from "../sources";
 import type { DiscordSettings, Look, Theme } from "../store";
 import { CURSORS, CursorPreview, MAX_CUSTOM_BYTES, type CustomCursor } from "./Cursor";
+import { deleteImage, putImage } from "../cursorStore";
 import { newId } from "../sources";
 import { LanguagePrefs, SourcesList } from "./SourcesSettings";
 
@@ -42,6 +43,8 @@ export function SettingsView(props: {
   onLook: (l: Look) => void;
   customCursors: CustomCursor[];
   onCustomCursors: (c: CustomCursor[]) => void;
+  /** id → image URL of each custom cursor */
+  cursorImages: Record<string, string>;
 }) {
   const look = props.look;
   const file = useRef<HTMLInputElement>(null);
@@ -54,27 +57,21 @@ export function SettingsView(props: {
       return;
     }
     if (f.size > MAX_CUSTOM_BYTES) {
-      setCursorError(`La imagen pesa ${(f.size / 1048576).toFixed(1)} MB; el máximo es 1,5 MB.`);
+      setCursorError(`La imagen pesa ${(f.size / 1048576).toFixed(1)} MB; el máximo es ${MAX_CUSTOM_BYTES / 1048576} MB.`);
       return;
     }
-    const r = new FileReader();
-    r.onload = () => {
-      const c: CustomCursor = { id: newId(), name: f.name.replace(/\.[^.]+$/, "").slice(0, 24), src: String(r.result) };
-      const next = [...props.customCursors, c];
-      // local storage holds ~5 MB: check it fits before adding
-      try {
-        localStorage.setItem("atv.cursors", JSON.stringify(next));
-      } catch {
-        setCursorError("No queda espacio para más imágenes; quita alguna.");
-        return;
-      }
-      props.onCustomCursors(next);
-      props.onLook({ ...look, cursor: `custom:${c.id}` });
-    };
-    r.readAsDataURL(f);
+    const c: CustomCursor = { id: newId(), name: f.name.replace(/\.[^.]+$/, "").slice(0, 24) };
+    putImage(c.id, f).then(
+      () => {
+        props.onCustomCursors([...props.customCursors, c]);
+        props.onLook({ ...look, cursor: `custom:${c.id}` });
+      },
+      () => setCursorError("No se pudo guardar la imagen (¿disco lleno?)."),
+    );
   };
   const removeCursor = (id: string) => {
     props.onCustomCursors(props.customCursors.filter((c) => c.id !== id));
+    deleteImage(id);
     if (look.cursor === `custom:${id}`) props.onLook({ ...look, cursor: "system" });
   };
   const d = props.discord;
@@ -148,7 +145,7 @@ export function SettingsView(props: {
                   }`}
                 >
                   <span className="grid h-[60px] place-items-center">
-                    <CursorPreview image={c.src} size={56} />
+                    <CursorPreview image={props.cursorImages[c.id]} size={56} />
                   </span>
                   <span className="w-full truncate">{c.name}</span>
                 </button>
@@ -183,20 +180,20 @@ export function SettingsView(props: {
           />
         </div>
         <p className="mt-3 text-[13.5px] text-muted">
-          Añade el personaje que quieras con un GIF, APNG o WebP animado (fondo transparente, máx. 1,5 MB). Se guarda solo en este
+          Añade el personaje que quieras con un GIF, APNG o WebP animado (fondo transparente, máx. 10 MB). Se guarda solo en este
           equipo.
         </p>
         {cursorError && <p className="mt-1 text-[13.5px] text-amber-500">{cursorError}</p>}
         <div className={`mt-5 flex items-center gap-3 ${look.cursor === "system" ? "pointer-events-none opacity-40" : ""}`}>
           <span className="text-[14px] text-muted">Tamaño</span>
           <div className="flex w-fit gap-1 rounded-full bg-panel-2/60 p-1">
-            {(["s", "m", "l"] as const).map((z) => (
+            {(["s", "m", "l", "xl"] as const).map((z) => (
               <button
                 key={z}
                 onClick={() => props.onLook({ ...look, cursorSize: z })}
                 className={`h-9 rounded-full px-4 text-[14.5px] ${look.cursorSize === z ? "bg-accent text-white" : "hover:bg-panel-2"}`}
               >
-                {z === "s" ? "Pequeño" : z === "m" ? "Mediano" : "Grande"}
+                {z === "s" ? "Pequeño" : z === "m" ? "Mediano" : z === "l" ? "Grande" : "×2"}
               </button>
             ))}
           </div>

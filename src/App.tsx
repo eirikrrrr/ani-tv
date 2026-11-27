@@ -1,11 +1,15 @@
-import { Download, Heart, SearchX } from "lucide-react";
+import { Heart, SearchX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { currentSeason, genreLabel, GENRES, list, type ListQuery, type Media } from "./anilist";
 import { Dock, Sidebar, TopBar, type ViewKind } from "./components/Chrome";
-import { Details, Empty, Hero, NowWatching, PosterGrid, SectionTitle, WideRow, type Now } from "./components/Media";
+import { Details, Empty, Hero, NowWatching, PosterGrid, Reveal, SectionTitle, WideRow, type Now } from "./components/Media";
 import { AddonsView } from "./components/Addons";
 import { AnimeCursor, type CursorKind, type CustomCursor } from "./components/Cursor";
+import { useCursorImages } from "./cursorStore";
 import { Picker, type PickTarget } from "./components/Picker";
+import { PlayerSession } from "./components/Player";
+import { DownloadsView } from "./components/Downloads";
+import { DEFAULT_DOWNLOADS, type DownloadSettings } from "./player";
 import { SettingsView } from "./components/Settings";
 import * as discord from "./discord";
 import { DEFAULT_CATALOGS, DEFAULT_PREFS, type Catalog, type Prefs, type Ranked, type Source } from "./sources";
@@ -32,10 +36,11 @@ export default function App() {
   const [catalogs, setCatalogs] = useStored<Catalog[]>("catalogs", DEFAULT_CATALOGS);
   const [look, setLook] = useStored<Look>("look", DEFAULT_LOOK);
   const [customCursors, setCustomCursors] = useStored<CustomCursor[]>("cursors", []);
-  const cursorImage = look.cursor.startsWith("custom:")
-    ? customCursors.find((c) => `custom:${c.id}` === look.cursor)?.src ?? null
-    : null;
+  const cursorImages = useCursorImages(customCursors);
+  const cursorImage = look.cursor.startsWith("custom:") ? cursorImages[look.cursor.slice(7)] ?? null : null;
   const [pick, setPick] = useState<PickTarget | null>(null);
+  const [downloads, setDownloads] = useStored<DownloadSettings>("downloads", DEFAULT_DOWNLOADS);
+  const [session, setSession] = useState<{ target: PickTarget; release: Ranked; key: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const [view, setView] = useState<View>({ kind: "home" });
@@ -173,18 +178,15 @@ export default function App() {
     const t = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(t);
   }, [toast]);
-  const onPicked = async (r: Ranked | null) => {
+  // a release chosen → play it (torrent + mpv); no release → just mark it
+  const onPicked = (r: Ranked | null) => {
     if (!pick) return;
     if (r) {
-      const link = r.magnet ?? r.torrentUrl ?? "";
-      try {
-        await navigator.clipboard.writeText(link);
-        notify("Enlace copiado · episodio marcado como «viendo»");
-      } catch {
-        notify("Episodio marcado como «viendo»");
-      }
+      setSession({ target: pick, release: r, key: Date.now() });
+    } else {
+      watch(pick.media, pick.episode);
+      notify("Episodio marcado como «viendo»");
     }
-    watch(pick.media, pick.episode);
     setPick(null);
   };
 
@@ -204,10 +206,14 @@ export default function App() {
             onOpen={openDetail}
             onFavorite={toggleFavorite}
           />
-          <SectionTitle title="Te puede gustar" action="Ver todo" onAction={() => go({ kind: "explore" })} />
-          <WideRow items={rest.slice(0, 9)} onOpen={openDetail} onWatch={(m) => choose(m)} />
-          <SectionTitle title={`Más en ${cat.label.toLowerCase()}`} />
-          <PosterGrid items={rest.slice(9)} onOpen={openDetail} loading={items.length === 0} />
+          <Reveal>
+            <SectionTitle title="Te puede gustar" action="Ver todo" onAction={() => go({ kind: "explore" })} />
+            <WideRow items={rest.slice(0, 9)} onOpen={openDetail} onWatch={(m) => choose(m)} />
+          </Reveal>
+          <Reveal>
+            <SectionTitle title={`Más en ${cat.label.toLowerCase()}`} />
+            <PosterGrid items={rest.slice(9)} onOpen={openDetail} loading={items.length === 0} />
+          </Reveal>
         </>
       );
       break;
@@ -249,16 +255,7 @@ export default function App() {
       );
       break;
     case "downloads":
-      content = (
-        <div className="fade-in">
-          <h1 className="mb-6 text-[26px] font-medium">Descargas</h1>
-          <Empty
-            icon={<Download size={24} />}
-            title="Streaming y descargas: fase 2"
-            text="Aquí verás los episodios que se están descargando o que ya tienes en el equipo. Primero hay que añadir fuentes en Ajustes."
-          />
-        </div>
-      );
+      content = <DownloadsView settings={downloads} onSettings={setDownloads} />;
       break;
     case "addons":
       content = <AddonsView sources={sources} onSources={setSources} catalogs={catalogs} onCatalogs={setCatalogs} notify={notify} />;
@@ -281,6 +278,7 @@ export default function App() {
           onLook={setLook}
           customCursors={customCursors}
           onCustomCursors={setCustomCursors}
+          cursorImages={cursorImages}
           onDisconnect={() => {
             discord.disconnect();
             setDstatus("off");
@@ -308,6 +306,10 @@ export default function App() {
   const playing = now;
   return (
     <div className="flex h-full flex-col gap-4 p-4">
+      <div className="ambient" aria-hidden>
+        <i />
+        <i />
+      </div>
       <TopBar
         query={query}
         onQuery={onQuery}
@@ -335,7 +337,7 @@ export default function App() {
           <div key={`${view.kind}-${view.id ?? ""}`} className="view-enter">
             {content}
           </div>
-          {playing && (
+          {playing && !session && (
             <NowWatching
               now={playing}
               discord={dsettings.enabled ? dstatus : "off"}
@@ -361,6 +363,25 @@ export default function App() {
             setTimeout(() => document.getElementById("sources")?.scrollIntoView({ behavior: "smooth" }), 50);
           }}
           notify={notify}
+        />
+      )}
+      {session && (
+        <PlayerSession
+          key={session.key}
+          target={session.target}
+          release={session.release}
+          downloads={downloads}
+          prefs={prefs}
+          onPlaying={() => watch(session.target.media, session.target.episode)}
+          onNext={
+            !session.target.media.episodes || session.target.episode < session.target.media.episodes
+              ? () => choose(session.target.media, session.target.episode + 1)
+              : null
+          }
+          onEnd={() => {
+            setSession(null);
+            setNow(null);
+          }}
         />
       )}
       {toast && (

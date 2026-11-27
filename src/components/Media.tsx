@@ -4,7 +4,7 @@
 import {
   ArrowLeft, Check, ChevronDown, ChevronUp, Flame, Heart, Info, Pause, Play, SkipBack, SkipForward, Star,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { availableEpisodes, byId, formatLabel, genreLabel, type Media } from "../anilist";
 import type { DiscordStatus } from "../discord";
 import type { Saved } from "../store";
@@ -37,6 +37,8 @@ function Petals() {
   );
 }
 
+const HERO_MS = 8000;
+
 export function Hero(props: {
   items: Media[];
   badge: string;
@@ -46,13 +48,24 @@ export function Hero(props: {
   onFavorite: (m: Media) => void;
 }) {
   const [i, setI] = useState(0);
+  const [paused, setPaused] = useState(false);
   useEffect(() => setI(0), [props.items]);
   const n = props.items.length;
+  // autoplay: next title every 8 s, paused while the pointer is over the hero
+  useEffect(() => {
+    if (n < 2 || paused) return;
+    const t = setTimeout(() => setI((x) => (x + 1) % n), HERO_MS);
+    return () => clearTimeout(t);
+  }, [i, n, paused]);
   const m = props.items[i % Math.max(n, 1)];
   if (!m) return <div className="h-[380px] animate-pulse rounded-[28px] bg-panel" />;
   const fav = props.isFavorite(m.id);
   return (
-    <section className="relative h-[380px] overflow-hidden rounded-[28px] bg-black text-white shadow-soft max-sm:h-[440px]">
+    <section
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      className={`relative h-[380px] overflow-hidden rounded-[28px] bg-black text-white shadow-soft max-sm:h-[440px] ${paused ? "hero-paused" : ""}`}
+    >
       <img
         key={m.id}
         src={m.banner ?? m.cover}
@@ -64,7 +77,7 @@ export function Hero(props: {
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
       <Petals />
 
-      <div key={`t${m.id}`} className="fade-in relative flex h-full max-w-[600px] flex-col justify-end gap-3 p-7 pr-20">
+      <div key={`t${m.id}`} className="hero-text relative flex h-full max-w-[600px] flex-col justify-end gap-3 p-7 pr-20">
         <span className="mb-auto flex w-fit items-center gap-1.5 rounded-full bg-white/12 px-4 py-2 text-[15px] backdrop-blur-md">
           <Flame size={16} className="text-orange-400" fill="currentColor" /> {props.badge}
         </span>
@@ -102,6 +115,7 @@ export function Hero(props: {
         </div>
       </div>
 
+      {n > 1 && <span key={`p${i}`} className="hero-progress" style={{ "--dur": `${HERO_MS}ms` } as CSSProperties} />}
       {n > 1 && (
         <div className="absolute top-1/2 right-6 flex -translate-y-1/2 flex-col gap-3">
           <button
@@ -124,10 +138,39 @@ export function Hero(props: {
   );
 }
 
+/** Children fade/slide in the first time they scroll into view. */
+export function Reveal(props: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || inView) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "0px 0px -8% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [inView]);
+  return (
+    <div ref={ref} className={`reveal ${inView ? "in" : ""} ${props.className ?? ""}`}>
+      {props.children}
+    </div>
+  );
+}
+
 export function SectionTitle(props: { title: string; action?: string; onAction?: () => void }) {
   return (
     <div className="mt-7 mb-4 flex items-baseline justify-between">
-      <h2 className="text-[22px] font-medium">{props.title}</h2>
+      <h2 className="text-[22px] font-medium">
+        <span className="title-bar" aria-hidden />
+        {props.title}
+      </h2>
       {props.action && (
         <button onClick={props.onAction} className="text-[15px] text-muted hover:text-accent">
           {props.action}
@@ -153,7 +196,7 @@ export function WideRow(props: { items: Media[]; onOpen: (id: number) => void; o
           key={m.id}
           onClick={() => props.onOpen(m.id)}
           style={{ "--i": i } as CSSProperties}
-          className="stagger lift group relative h-[180px] w-[calc((100%-40px)/3)] min-w-[260px] shrink-0 cursor-pointer snap-start overflow-hidden rounded-3xl bg-black text-white shadow-soft"
+          className="stagger lift shine group relative h-[180px] w-[calc((100%-40px)/3)] min-w-[260px] shrink-0 cursor-pointer snap-start overflow-hidden rounded-3xl bg-black text-white shadow-soft"
         >
           <img
             src={m.banner ?? m.cover}
@@ -201,7 +244,7 @@ export function PosterGrid(props: { items: (Media | Saved)[]; onOpen: (id: numbe
           style={{ "--i": i } as CSSProperties}
           className="stagger group text-left"
         >
-          <div className="lift aspect-[2/3] overflow-hidden rounded-2xl bg-panel shadow-soft">
+          <div className="lift shine aspect-[2/3] overflow-hidden rounded-2xl bg-panel shadow-soft">
             <img
               src={m.cover}
               alt=""
@@ -296,6 +339,7 @@ export function Details(props: {
         </div>
       </section>
 
+      <Reveal>
       <SectionTitle title={`Episodios${eps ? ` · ${eps}` : ""}`} />
       {eps === 0 ? (
         <p className="text-muted">Todavía no hay episodios emitidos.</p>
@@ -320,6 +364,7 @@ export function Details(props: {
           })}
         </div>
       )}
+      </Reveal>
     </div>
   );
 }
@@ -357,7 +402,6 @@ export function NowWatching(props: {
           </span>
         </span>
       </button>
-      <span className="hidden text-[13px] text-muted lg:block">El reproductor integrado llega en la próxima alpha</span>
       <div className="flex items-center gap-1.5">
         <button
           disabled={episode <= 1}

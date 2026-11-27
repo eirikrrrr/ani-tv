@@ -10,11 +10,13 @@ export type BuiltinCursor = "neko" | "kitsune" | "mochi";
 /** "system", a built-in character, or "custom:<id>" (an image the user added) */
 export type CursorKind = "system" | BuiltinCursor | `custom:${string}`;
 
-/** An image the user added (GIF/APNG/WebP/PNG), kept only on this computer. */
-export type CustomCursor = { id: string; name: string; src: string };
-/** Largest image accepted (stored as a data URL in local storage). */
-export const MAX_CUSTOM_BYTES = 1.5 * 1024 * 1024;
-export type CursorSize = "s" | "m" | "l";
+/** An image the user added (GIF/APNG/WebP/PNG), kept only on this computer.
+ *  The image itself is in IndexedDB (cursorStore.ts); `src` only exists in
+ *  saves from before that (a data URL). */
+export type CustomCursor = { id: string; name: string; src?: string };
+/** Largest image accepted. */
+export const MAX_CUSTOM_BYTES = 10 * 1024 * 1024;
+export type CursorSize = "s" | "m" | "l" | "xl";
 
 export const CURSORS: { id: "system" | BuiltinCursor; label: string }[] = [
   { id: "system", label: "Sistema" },
@@ -23,7 +25,8 @@ export const CURSORS: { id: "system" | BuiltinCursor; label: string }[] = [
   { id: "mochi", label: "Mochi" },
 ];
 
-const PX: Record<CursorSize, number> = { s: 34, m: 46, l: 60 };
+/** "xl" is twice the large size */
+const PX: Record<CursorSize, number> = { s: 34, m: 46, l: 60, xl: 120 };
 const INK = "#2a2430";
 
 function Eyes(props: { y: number; l: number; r: number }) {
@@ -236,7 +239,9 @@ export function AnimeCursor(props: { kind: CursorKind; size: CursorSize; image?:
         <span className="ac-char" style={{ width: px, height: px }}>
           <Figure kind={builtin} image={custom ? props.image : null} />
         </span>
-        <span className="ac-zzz">z</span>
+        <span className="ac-zzz" style={{ left: px - 2 }}>
+          z
+        </span>
       </div>
     </>
   );

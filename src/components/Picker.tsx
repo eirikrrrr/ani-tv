@@ -197,7 +197,7 @@ export function Picker(props: {
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
         <footer className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-[13px] text-muted">
-          <span>El reproductor integrado llega en la próxima alpha: por ahora «Ver» copia el enlace y marca el episodio.</span>
+          <span>«Ver» descarga el episodio por partes y lo abre en el reproductor en cuanto hay suficiente.</span>
           <button onClick={() => props.onPlay(null)} className="shrink-0 hover:text-accent">
             Marcar sin fuente
           </button>

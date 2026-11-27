@@ -51,7 +51,7 @@ export type DiscordSettings = { enabled: boolean; clientId: string };
 export type Look = {
   /** "system", a built-in character or "custom:<id>" */
   cursor: string;
-  cursorSize: "s" | "m" | "l";
+  cursorSize: "s" | "m" | "l" | "xl";
   /** petals, Ken Burns zoom */
   effects: boolean;
 };

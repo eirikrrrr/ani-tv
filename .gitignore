@@ -5,3 +5,5 @@ dist
 out
 .DS_Store
 *.log
+# mpv is downloaded by the CI (see .github/workflows)
+/src-tauri/mpv/

@@ -4,7 +4,7 @@
 import {
   Compass, Download, Heart, Home, Moon, Play, Puzzle, Search, Settings, Sun, Tv,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { DiscordStatus } from "../discord";
 import type { Progress, Theme } from "../store";
 
@@ -13,7 +13,7 @@ export type ViewKind = "home" | "explore" | "favorites" | "downloads" | "addons"
 export function Logo() {
   return (
     <div className="flex items-center gap-2 select-none">
-      <span className="grid size-8 place-items-center rounded-xl bg-accent text-white">
+      <span className="logo-glint grid size-8 place-items-center rounded-xl bg-accent text-white">
         <Tv size={17} strokeWidth={2.4} />
       </span>
       <span className="text-[17px] font-bold tracking-tight">
@@ -39,6 +39,54 @@ const STATUS_TEXT: Record<DiscordStatus, string> = {
   error: "Discord sin conexión",
 };
 
+/** Category chips with a pill that slides to the active one. */
+function Chips(props: {
+  categories: { id: string; label: string }[];
+  active: string | null;
+  onCategory: (id: string) => void;
+  onMore: () => void;
+}) {
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [pill, setPill] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = props.active ? refs.current[props.active] : null;
+      setPill(el ? { x: el.offsetLeft, w: el.offsetWidth } : null);
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [props.active, props.categories]);
+  return (
+    <nav className="no-scrollbar relative flex min-w-0 flex-1 items-center gap-1 overflow-x-auto max-md:hidden">
+      <span className="relative flex items-center gap-1">
+        <span
+          aria-hidden
+          className="chip-pill"
+          style={{ transform: `translateX(${pill?.x ?? 0}px)`, width: pill?.w ?? 0, opacity: pill ? 1 : 0 }}
+        />
+        {props.categories.map((c) => (
+          <button
+            key={c.id}
+            ref={(el) => {
+              refs.current[c.id] = el;
+            }}
+            onClick={() => props.onCategory(c.id)}
+            className={`relative h-11 shrink-0 rounded-full px-5 text-[15px] font-medium transition-colors ${
+              props.active === c.id ? "text-white" : "hover:bg-panel"
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </span>
+      <button onClick={props.onMore} className="h-11 shrink-0 rounded-full px-5 text-[15px] font-medium hover:bg-panel">
+        Más
+      </button>
+    </nav>
+  );
+}
+
 export function TopBar(props: {
   query: string;
   onQuery: (q: string) => void;
@@ -55,7 +103,7 @@ export function TopBar(props: {
     props.discord === "on" ? "bg-emerald-500" : props.discord === "error" ? "bg-amber-500" : "bg-muted";
   return (
     <header className="flex items-center gap-3">
-      <label className="flex h-12 w-full max-w-[270px] shrink-0 items-center gap-2.5 rounded-full bg-panel px-4 shadow-soft max-md:max-w-none max-md:flex-1">
+      <label className="search-box flex h-12 w-full max-w-[270px] shrink-0 items-center gap-2.5 rounded-full bg-panel px-4 shadow-soft max-md:max-w-none max-md:flex-1">
         <Search size={18} className="text-muted" />
         <input
           value={props.query}
@@ -65,22 +113,7 @@ export function TopBar(props: {
         />
       </label>
 
-      <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto max-md:hidden">
-        {props.categories.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => props.onCategory(c.id)}
-            className={`h-11 shrink-0 rounded-full px-5 text-[15px] font-medium transition-colors ${
-              props.active === c.id ? "bg-accent text-white" : "hover:bg-panel"
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
-        <button onClick={props.onMore} className="h-11 shrink-0 rounded-full px-5 text-[15px] font-medium hover:bg-panel">
-          Más
-        </button>
-      </nav>
+      <Chips categories={props.categories} active={props.active} onCategory={props.onCategory} onMore={props.onMore} />
 
       <button
         onClick={props.onTheme}
@@ -130,7 +163,7 @@ export function Sidebar(props: {
       <button
         key={n.kind}
         onClick={() => props.onView(n.kind)}
-        className={`flex h-12 items-center gap-3.5 rounded-2xl px-4 text-[16px] transition-colors ${
+        className={`nav-item flex h-12 items-center gap-3.5 rounded-2xl px-4 text-[16px] transition-colors ${
           on ? "font-medium text-accent" : "hover:bg-panel-2"
         }`}
       >

@@ -6,6 +6,9 @@ import "@fontsource/outfit/600.css";
 import "@fontsource/outfit/700.css";
 import "./index.css";
 import App from "./App";
+import { installAppShell } from "./appShell";
+
+installAppShell();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

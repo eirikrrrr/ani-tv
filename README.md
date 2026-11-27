@@ -4,8 +4,8 @@ App de escritorio (Windows, Linux, macOS) para descubrir y ver anime, con
 **estado en Discord**: tus amigos ven qué serie y qué episodio estás viendo,
 con su portada.
 
-> Estado: **alpha**. Catálogo, Discord, fuentes e idiomas funcionan; el
-> reproductor integrado (streaming) llega en la próxima fase.
+> Estado: **alpha**. Catálogo, Discord, fuentes, addons y reproducción en
+> streaming (torrent + mpv) funcionan.
 
 ## Qué hace ya
 
@@ -45,6 +45,13 @@ src/         interfaz React
 3. **Fase 3:** episodios vistos sincronizados con AniList/MAL, avisos de
    episodios nuevos de tus favoritos.
 4. **Fase 4:** instaladores (MSI/NSIS, AppImage, deb) y actualizaciones automáticas.
+
+## Componentes de terceros
+
+- **mpv** (GPLv2+): el instalador de Windows incluye un build de
+  [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake)
+  como programa aparte (no enlazado). Código fuente: <https://github.com/mpv-player/mpv>.
+- **librqbit** (Apache-2.0) para el motor torrent.
 
 **Sobre el contenido:** la app no aloja, indexa ni distribuye vídeo. Las fuentes
 las añade cada usuario y es responsabilidad suya usar solo contenido que tenga

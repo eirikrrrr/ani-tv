@@ -3,6 +3,8 @@
 
 use std::sync::Mutex;
 
+mod player;
+
 use anime_tv_core::discord::{Discord, Idle, Presence};
 use anime_tv_core::rank::{rank, Prefs, Ranked, Wanted};
 use anime_tv_core::addons::{self, CatalogEntry, Manifest, StreamSupport};
@@ -128,6 +130,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
+        .manage(player::Player::default())
         .invoke_handler(tauri::generate_handler![
             discord_connect,
             discord_set,
@@ -137,13 +140,19 @@ pub fn run() {
             sources_search,
             source_test,
             addon_manifest,
-            addon_catalog
+            addon_catalog,
+            player::play_open,
+            player::play_status,
+            player::play_close,
+            player::play_launch,
+            player::play_stop
         ])
         .build(tauri::generate_context!())
         .expect("error while building the app")
         .run(|app, event| {
             // leave no stale "Watching …" in Discord when the app closes
             if let RunEvent::Exit = event {
+                player::shutdown(&app.state::<player::Player>());
                 if let Ok(mut slot) = app.state::<AppState>().discord.lock() {
                     if let Some(mut d) = slot.take() {
                         d.disconnect();
