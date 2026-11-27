@@ -37,6 +37,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Check translations (every t("…") has English)
+        run: npm run check:i18n
+
       - name: Test the core
         run: cargo test -p anime-tv-core
 
