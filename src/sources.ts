@@ -3,20 +3,21 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { inTauri } from "./discord";
+import { t, tErr } from "./i18n";
 
 export type Lang = "ja" | "en" | "es" | "es-419" | "pt-BR" | "fr" | "de" | "it" | "multi";
 export type Track = "audio" | "subs";
 
 export const LANGS: { id: Lang; label: string; short: string }[] = [
-  { id: "es", label: "Español", short: "ES" },
-  { id: "es-419", label: "Español latino", short: "LAT" },
-  { id: "en", label: "Inglés", short: "EN" },
-  { id: "ja", label: "Japonés", short: "JA" },
-  { id: "pt-BR", label: "Portugués (Brasil)", short: "PT" },
-  { id: "fr", label: "Francés", short: "FR" },
-  { id: "de", label: "Alemán", short: "DE" },
-  { id: "it", label: "Italiano", short: "IT" },
-  { id: "multi", label: "Varios (multi-sub)", short: "MULTI" },
+  { id: "es", label: t("Español"), short: "ES" },
+  { id: "es-419", label: t("Español latino"), short: "LAT" },
+  { id: "en", label: t("Inglés"), short: "EN" },
+  { id: "ja", label: t("Japonés"), short: "JA" },
+  { id: "pt-BR", label: t("Portugués (Brasil)"), short: "PT" },
+  { id: "fr", label: t("Francés"), short: "FR" },
+  { id: "de", label: t("Alemán"), short: "DE" },
+  { id: "it", label: t("Italiano"), short: "IT" },
+  { id: "multi", label: t("Varios (multi-sub)"), short: "MULTI" },
 ];
 export const langLabel = (l: Lang) => LANGS.find((x) => x.id === l)?.label ?? l;
 export const langShort = (l: Lang) => LANGS.find((x) => x.id === l)?.short ?? l.toUpperCase();
@@ -98,10 +99,10 @@ export type Wanted = {
   movie: boolean;
 };
 
-const msg = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+const msg = (e: unknown) => tErr(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
 
 export async function search(sources: Source[], wanted: Wanted, prefs: Prefs): Promise<SearchResult> {
-  if (!inTauri) throw new Error("La búsqueda en fuentes solo funciona en la app de escritorio");
+  if (!inTauri) throw new Error(t("La búsqueda en fuentes solo funciona en la app de escritorio"));
   try {
     return await invoke<SearchResult>("sources_search", { sources, wanted, prefs });
   } catch (e) {
@@ -110,7 +111,7 @@ export async function search(sources: Source[], wanted: Wanted, prefs: Prefs): P
 }
 
 export async function testSource(source: Source): Promise<string> {
-  if (!inTauri) throw new Error("Solo en la app de escritorio");
+  if (!inTauri) throw new Error(t("Solo en la app de escritorio"));
   try {
     return await invoke<string>("source_test", { source });
   } catch (e) {
@@ -157,11 +158,11 @@ export type AddonInfo = { url: string; manifest: Manifest; streams: StreamSuppor
 export type Catalog = { id: string; name: string; url: string };
 
 export const DEFAULT_CATALOGS: Catalog[] = [
-  { id: "stremio", name: "Stremio (oficial)", url: "https://api.strem.io/addonscollection.json" },
+  { id: "stremio", name: t("Stremio (oficial)"), url: "https://api.strem.io/addonscollection.json" },
 ];
 
 export async function addonManifest(url: string): Promise<AddonInfo> {
-  if (!inTauri) throw new Error("Solo en la app de escritorio");
+  if (!inTauri) throw new Error(t("Solo en la app de escritorio"));
   try {
     return await invoke<AddonInfo>("addon_manifest", { url });
   } catch (e) {
@@ -170,7 +171,7 @@ export async function addonManifest(url: string): Promise<AddonInfo> {
 }
 
 export async function addonCatalog(url: string): Promise<AddonInfo[]> {
-  if (!inTauri) throw new Error("Solo en la app de escritorio");
+  if (!inTauri) throw new Error(t("Solo en la app de escritorio"));
   try {
     return await invoke<AddonInfo[]>("addon_catalog", { url });
   } catch (e) {

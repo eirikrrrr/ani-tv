@@ -9,8 +9,10 @@ import App from "./App";
 import { installAppShell } from "./appShell";
 import PlayerOverlay from "./components/PlayerOverlay";
 import { OVERLAY } from "./player";
+import { lang } from "./i18n";
 
 installAppShell();
+document.documentElement.lang = lang;
 
 // the same bundle runs the main window and the embedded player's controls
 const label = (window as { __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } } }).__TAURI_INTERNALS__

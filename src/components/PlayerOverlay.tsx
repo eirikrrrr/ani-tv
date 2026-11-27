@@ -6,12 +6,15 @@
 
 import { emitTo, listen } from "@tauri-apps/api/event";
 import {
-  ArrowLeft, AudioLines, Captions, Check, Download, Loader2, Maximize, Minimize, Pause, Play, RotateCcw, RotateCw,
-  SkipForward, Users, Volume1, Volume2, VolumeX,
+  ArrowLeft, AudioLines, Captions, Check, CheckCircle2, Download, Loader2, Maximize, Minimize, NotebookPen, Pause, Play,
+  RotateCcw, RotateCw, SkipForward, Upload, Users, Volume1, Volume2, VolumeX,
 } from "lucide-react";
+import { episodeNotes, useNotes } from "../notes";
+import { NotesPanel } from "./NotesPanel";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import * as player from "../player";
 import type { MpvEvent, PlayerAction, PlayerInfo, Stats } from "../player";
+import { t } from "../i18n";
 
 type Track = { id: number; type: "video" | "audio" | "sub"; lang?: string; title?: string; selected?: boolean; codec?: string; external?: boolean };
 
@@ -89,12 +92,12 @@ const LANG_NAMES: Record<string, string> = {
   fra: "Francés", fr: "Francés", ger: "Alemán", deu: "Alemán", de: "Alemán", ita: "Italiano", it: "Italiano",
   rus: "Ruso", ru: "Ruso", ara: "Árabe", ar: "Árabe", chi: "Chino", zho: "Chino", zh: "Chino", kor: "Coreano", ko: "Coreano",
 };
-const trackLabel = (t: Track) => {
-  const lang = t.lang ? LANG_NAMES[t.lang] ?? t.lang.toUpperCase() : null;
+const trackLabel = (tr: Track) => {
+  const lang = tr.lang ? (LANG_NAMES[tr.lang] ? t(LANG_NAMES[tr.lang]) : tr.lang.toUpperCase()) : null;
   // a title that already names the language ("Español (España)") says it all
-  if (t.title && lang && t.title.toLowerCase().includes(lang.toLowerCase())) return t.title;
-  const title = t.title && t.title !== lang ? t.title : null;
-  return [lang, title].filter(Boolean).join(" · ") || `Pista ${t.id}`;
+  if (tr.title && lang && tr.title.toLowerCase().includes(lang.toLowerCase())) return tr.title;
+  const title = tr.title && tr.title !== lang ? tr.title : null;
+  return [lang, title].filter(Boolean).join(" · ") || t("Pista {n}", { n: tr.id });
 };
 
 const HIDE_AFTER = 2600;
@@ -107,7 +110,12 @@ export default function PlayerOverlay() {
   const [menu, setMenu] = useState<"sub" | "audio" | null>(null);
   const [full, setFull] = useState(false);
   const [osd, setOsd] = useState<{ text: string; key: number } | null>(null);
+  // seek feedback on the side of the jump, like a double tap on a phone
+  const [ripple, setRipple] = useState<{ side: "left" | "right"; text: string; key: number } | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const notesApi = useNotes();
+  const myNotes = info ? episodeNotes(notesApi.notes, info.mediaId, info.episode) : [];
   const hideTimer = useRef<number | undefined>(undefined);
   const clickTimer = useRef<number | undefined>(undefined);
   const state = useRef(s);
@@ -116,6 +124,13 @@ export default function PlayerOverlay() {
   useEffect(() => {
     document.documentElement.classList.add("overlay");
     document.documentElement.dataset.theme = "dark";
+    // the app's "effects" switch (Settings → look), shared through localStorage
+    try {
+      const look = JSON.parse(localStorage.getItem("atv.look") ?? "{}");
+      document.documentElement.dataset.fx = look.effects === false ? "off" : "on";
+    } catch {
+      /* default: on */
+    }
     player.info().then(setInfo, () => {});
     const subs = [
       player.onMpv((e) => setS((p) => reduce(p, e))),
@@ -125,6 +140,11 @@ export default function PlayerOverlay() {
   }, []);
 
   const flash = (text: string) => setOsd({ text, key: Date.now() });
+  useEffect(() => {
+    if (!ripple) return;
+    const t = setTimeout(() => setRipple(null), 650);
+    return () => clearTimeout(t);
+  }, [ripple]);
   useEffect(() => {
     if (!osd) return;
     const t = setTimeout(() => setOsd(null), 900);
@@ -141,25 +161,25 @@ export default function PlayerOverlay() {
   }, []);
   const started = s.timePos != null;
   const loading = !started || s.waiting || (s.seeking && s.waiting);
-  const keepShown = s.pause || menu != null || !started || s.eof;
+  const keepShown = s.pause || menu != null || !started || s.eof || notesOpen;
   const visible = shown || keepShown;
 
   // ---- commands -----------------------------------------------------------
   const togglePause = () => player.cmd("cycle", "pause");
   const seekBy = (sec: number) => {
     player.cmd("seek", sec, "relative");
-    flash(`${sec > 0 ? "+" : "−"}${Math.abs(sec)} s`);
+    setRipple({ side: sec > 0 ? "right" : "left", text: `${Math.abs(sec)} s`, key: Date.now() });
   };
   const seekTo = (t: number) => player.cmd("seek", Math.max(0, t), "absolute");
   const setVolume = (v: number) => {
     const vol = Math.round(Math.min(100, Math.max(0, v)));
     player.cmd("set_property", "volume", vol);
     if (state.current.mute && vol > 0) player.cmd("set_property", "mute", false);
-    flash(`Volumen ${vol}%`);
+    flash(t("Volumen {n}%", { n: vol }));
   };
   const toggleMute = () => {
     player.cmd("cycle", "mute");
-    flash(state.current.mute ? `Volumen ${Math.round(state.current.volume)}%` : "Silencio");
+    flash(state.current.mute ? t("Volumen {n}%", { n: Math.round(state.current.volume) }) : t("Silencio"));
   };
   const toggleFull = async () => setFull(await player.fullscreen().catch(() => full));
   const back = async () => {
@@ -207,8 +227,12 @@ export default function PlayerOverlay() {
       case "c":
         player.cmd("cycle", "sub-visibility");
         break;
+      case "b":
+        setNotesOpen((o) => !o);
+        break;
       case "Escape":
         if (menu) setMenu(null);
+        else if (notesOpen) setNotesOpen(false);
         else if (full) toggleFull();
         else back();
         break;
@@ -216,6 +240,9 @@ export default function PlayerOverlay() {
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // typing a note: the keys are text, not shortcuts
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT")) return;
       e.preventDefault();
       keyRef.current(e.key, e.shiftKey);
     };
@@ -286,7 +313,7 @@ export default function PlayerOverlay() {
               <Loader2 size={38} className="animate-spin text-white/90" />
             </div>
             <p className="rounded-full bg-black/40 px-3 py-1 text-[13px] text-white/80 backdrop-blur-md">
-              {!started ? "Abriendo el vídeo…" : `Cargando${s.cachePct != null ? ` ${s.cachePct}%` : "…"}`}
+              {!started ? t("Abriendo el vídeo…") : s.cachePct != null ? t("Cargando {n}%", { n: s.cachePct }) : t("Cargando…")}
             </p>
           </div>
         ) : s.pause && !s.eof ? (
@@ -295,6 +322,28 @@ export default function PlayerOverlay() {
           </div>
         ) : null}
       </div>
+
+      {/* seek ripple */}
+      {ripple && (
+        <div
+          key={ripple.key}
+          className={`seek-ripple pointer-events-none absolute inset-y-0 grid w-[34%] place-items-center ${
+            ripple.side === "left" ? "left-0 rounded-r-[50%]" : "right-0 rounded-l-[50%]"
+          }`}
+        >
+          <div className="flex flex-col items-center gap-1">
+            <span className={`seek-chevrons flex ${ripple.side === "left" ? "flex-row-reverse rotate-180" : ""}`}>
+              <Play size={18} fill="currentColor" />
+              <Play size={18} fill="currentColor" />
+              <Play size={18} fill="currentColor" />
+            </span>
+            <span className="text-[15px] font-semibold">
+              {ripple.side === "left" ? "−" : "+"}
+              {ripple.text}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* OSD feedback */}
       {osd && (
@@ -306,25 +355,39 @@ export default function PlayerOverlay() {
       {/* top bar */}
       <div className={`player-fade absolute inset-x-0 top-0 ${visible ? "" : "player-hidden"}`}>
         <div className="pointer-events-none flex items-start gap-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-6 pt-5 pb-16 *:pointer-events-auto">
-          <button onClick={back} title="Volver (Esc)" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/10 backdrop-blur-md transition-colors hover:bg-white/20">
+          <button onClick={back} title={t("Volver (Esc)")} className="grid size-11 shrink-0 place-items-center rounded-full bg-white/10 backdrop-blur-md transition-colors hover:bg-white/20">
             <ArrowLeft size={20} />
           </button>
           <div className="min-w-0 flex-1 pt-0.5">
             <p className="truncate text-[19px] leading-tight font-semibold drop-shadow">{info?.series ?? ""}</p>
             <p className="mt-0.5 truncate text-[13.5px] text-white/65">
-              <span className="font-semibold text-accent">Episodio {info?.episode ?? ""}</span>
+              <span className="font-semibold text-accent">{t("Episodio {n}", { n: info?.episode ?? "" })}</span>
               {info?.release && <span className="ml-2">{info.release}</span>}
             </p>
           </div>
           {stats && (
             <div className="hidden shrink-0 items-center gap-3 rounded-full bg-black/35 px-4 py-2 text-[12.5px] text-white/75 backdrop-blur-md sm:flex">
-              <span className="flex items-center gap-1">
-                <Download size={13} /> {player.formatSpeed(stats.downBps)}
-              </span>
-              <span className="flex items-center gap-1">
-                <Users size={13} /> {stats.peers}
-              </span>
-              <span>{Math.round(stats.progress * 100)}%</span>
+              {stats.finished ? (
+                // all of it is on disk: nothing left to download
+                <span className="flex items-center gap-1.5 text-emerald-400" title={t("El episodio está completo en tu equipo")}>
+                  <CheckCircle2 size={14} /> {t("Descargado")}
+                </span>
+              ) : (
+                <>
+                  <span className="flex items-center gap-1" title={t("Descarga")}>
+                    <Download size={13} /> {player.formatSpeed(stats.downBps)}
+                  </span>
+                  <span className="flex items-center gap-1" title={t("Peers conectados")}>
+                    <Users size={13} /> {stats.peers}
+                  </span>
+                  <span title={t("Descargado")}>{Math.round(stats.progress * 100)}%</span>
+                </>
+              )}
+              {stats.upBps > 1024 && (
+                <span className="flex items-center gap-1" title={t("Compartiendo")}>
+                  <Upload size={13} /> {player.formatSpeed(stats.upBps)}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -332,26 +395,33 @@ export default function PlayerOverlay() {
 
       {/* next episode */}
       {(nearEnd || (s.eof && info)) && (
-        <div className="fade-in absolute right-6 bottom-32 max-w-[340px] rounded-2xl bg-black/60 p-4 ring-1 ring-white/10 backdrop-blur-xl">
+        <div className="next-card absolute right-6 bottom-32 max-w-[340px] rounded-2xl bg-black/60 p-4 ring-1 ring-white/10 backdrop-blur-xl">
           {s.eof && !info?.hasNext ? (
             <>
-              <p className="text-[15px] font-medium">Episodio terminado</p>
+              <p className="text-[15px] font-medium">{t("Episodio terminado")}</p>
               <button onClick={back} className="mt-3 h-10 rounded-full bg-white px-5 text-[14px] font-medium text-black">
-                Volver
+                {t("Volver")}
               </button>
             </>
           ) : (
             <>
-              <p className="text-[12px] font-semibold tracking-[0.15em] text-white/60 uppercase">A continuación</p>
-              <p className="mt-0.5 text-[16px] font-medium">Episodio {(info?.episode ?? 0) + 1}</p>
+              <p className="text-[12px] font-semibold tracking-[0.15em] text-white/60 uppercase">{t("A continuación")}</p>
+              <p className="mt-0.5 text-[16px] font-medium">{t("Episodio {n}", { n: (info?.episode ?? 0) + 1 })}</p>
               <div className="mt-3 flex gap-2">
                 <button onClick={() => act("next")} className="flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-black transition-transform hover:scale-[1.03]">
-                  <SkipForward size={15} fill="currentColor" />
-                  {countdown != null ? `Siguiente en ${countdown}` : "Siguiente episodio"}
+                  {countdown != null ? (
+                    <svg viewBox="0 0 20 20" className="size-5 -rotate-90">
+                      <circle cx="10" cy="10" r="8" fill="none" stroke="rgb(0 0 0 / 0.15)" strokeWidth="2.5" />
+                      <circle cx="10" cy="10" r="8" fill="none" stroke="var(--atv-accent)" strokeWidth="2.5" pathLength="100" className="countdown-ring" />
+                    </svg>
+                  ) : (
+                    <SkipForward size={15} fill="currentColor" />
+                  )}
+                  {countdown != null ? t("Siguiente en {n}", { n: countdown }) : t("Siguiente episodio")}
                 </button>
                 {countdown != null && (
                   <button onClick={() => setCountdown(null)} className="h-10 rounded-full bg-white/10 px-4 text-[14px] hover:bg-white/20">
-                    Cancelar
+                    {t("Cancelar")}
                   </button>
                 )}
               </div>
@@ -360,13 +430,39 @@ export default function PlayerOverlay() {
         </div>
       )}
 
+      {/* notes */}
+      {notesOpen && info && (
+        <NotesPanel
+          notes={myNotes}
+          now={s.timePos}
+          onSeek={(t) => {
+            seekTo(t);
+            flash(fmtTime(t));
+          }}
+          onAdd={(text, time) =>
+            notesApi.add({ mediaId: info.mediaId, series: info.series, cover: info.cover, episode: info.episode, time, text })
+          }
+          onUpdate={notesApi.update}
+          onRemove={notesApi.remove}
+          onClose={() => setNotesOpen(false)}
+        />
+      )}
+
       {/* bottom controls */}
       <div className={`player-fade absolute inset-x-0 bottom-0 ${visible ? "" : "player-hidden"}`}>
         <div className="pointer-events-none bg-gradient-to-t from-black/90 via-black/55 to-transparent px-6 pt-20 pb-5 *:pointer-events-auto">
-          <Seekbar time={s.timePos} duration={s.duration} cached={s.cacheTime} onSeek={seekTo} />
+          <Seekbar
+            time={s.timePos}
+            duration={s.duration}
+            cached={s.cacheTime}
+            onSeek={seekTo}
+            marks={myNotes.filter((n) => n.time != null).map((n) => ({ time: n.time!, text: n.text }))}
+          />
           <div className="mt-2 flex items-center gap-1">
-            <CtrlButton title={s.pause ? "Reproducir (espacio)" : "Pausa (espacio)"} onClick={togglePause} big>
-              {s.pause ? <Play size={24} fill="currentColor" className="ml-0.5" /> : <Pause size={24} fill="currentColor" />}
+            <CtrlButton title={s.pause ? t("Reproducir (espacio)") : t("Pausa (espacio)")} onClick={togglePause} big>
+              <span key={String(s.pause)} className="icon-swap grid place-items-center">
+                {s.pause ? <Play size={24} fill="currentColor" className="ml-0.5" /> : <Pause size={24} fill="currentColor" />}
+              </span>
             </CtrlButton>
             <CtrlButton title="−10 s (J)" onClick={() => seekBy(-10)}>
               <RotateCcw size={20} />
@@ -375,12 +471,12 @@ export default function PlayerOverlay() {
               <RotateCw size={20} />
             </CtrlButton>
             {info?.hasNext && (
-              <CtrlButton title="Siguiente episodio (N)" onClick={() => act("next")}>
+              <CtrlButton title={t("Siguiente episodio (N)")} onClick={() => act("next")}>
                 <SkipForward size={20} />
               </CtrlButton>
             )}
             <div className="group flex items-center">
-              <CtrlButton title="Silencio (M)" onClick={toggleMute}>
+              <CtrlButton title={t("Silencio (M)")} onClick={toggleMute}>
                 <VolIcon size={21} />
               </CtrlButton>
               <div className="w-0 overflow-hidden transition-[width] duration-200 group-hover:w-28 group-focus-within:w-28">
@@ -392,7 +488,7 @@ export default function PlayerOverlay() {
                   onChange={(e) => setVolume(Number(e.target.value))}
                   className="player-range mx-2 w-24"
                   style={{ ["--fill" as string]: `${s.mute ? 0 : s.volume}%` }}
-                  aria-label="Volumen"
+                  aria-label={t("Volumen")}
                 />
               </div>
             </div>
@@ -406,9 +502,9 @@ export default function PlayerOverlay() {
                   open={menu === "sub"}
                   onToggle={() => setMenu(menu === "sub" ? null : "sub")}
                   icon={<Captions size={21} />}
-                  title="Subtítulos"
+                  title={t("Subtítulos")}
                   items={[
-                    { id: "no", label: "Desactivados", selected: !subs.some((t) => t.selected) },
+                    { id: "no", label: t("Desactivados"), selected: !subs.some((t) => t.selected) },
                     ...subs.map((t) => ({ id: String(t.id), label: trackLabel(t), selected: !!t.selected, hint: t.codec })),
                   ]}
                   onPick={(id) => {
@@ -430,7 +526,17 @@ export default function PlayerOverlay() {
                   }}
                 />
               )}
-              <CtrlButton title={full ? "Salir de pantalla completa (F)" : "Pantalla completa (F)"} onClick={toggleFull}>
+              <CtrlButton title={t("Notas (B)")} onClick={() => setNotesOpen((o) => !o)} active={notesOpen}>
+                <span className="relative">
+                  <NotebookPen size={20} />
+                  {myNotes.length > 0 && (
+                    <span className="absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-semibold">
+                      {myNotes.length}
+                    </span>
+                  )}
+                </span>
+              </CtrlButton>
+              <CtrlButton title={full ? t("Salir de pantalla completa (F)") : t("Pantalla completa (F)")} onClick={toggleFull}>
                 {full ? <Minimize size={20} /> : <Maximize size={20} />}
               </CtrlButton>
             </div>
@@ -491,7 +597,14 @@ function Menu(props: {
 }
 
 /** Played / buffered bar with a hover time and drag-to-seek. */
-function Seekbar(props: { time: number | null; duration: number | null; cached: number | null; onSeek: (t: number) => void }) {
+function Seekbar(props: {
+  time: number | null;
+  duration: number | null;
+  cached: number | null;
+  onSeek: (t: number) => void;
+  /** the episode's notes, as dots over the bar */
+  marks: { time: number; text: string }[];
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
   const [drag, setDrag] = useState<number | null>(null);
@@ -529,6 +642,15 @@ function Seekbar(props: { time: number | null; duration: number | null; cached: 
         <div className="absolute inset-y-0 left-0 bg-white/35" style={{ width: `${Math.max(cached, played) * 100}%` }} />
         <div className="absolute inset-y-0 left-0 bg-accent" style={{ width: `${played * 100}%` }} />
       </div>
+      {d > 0 &&
+        props.marks.map((m, i) => (
+          <span
+            key={i}
+            title={m.text}
+            className="note-mark absolute -top-1.5 size-2 -translate-x-1/2 rounded-full bg-amber-300 shadow-[0_0_0_2px_rgb(0_0_0/0.5)]"
+            style={{ left: `${Math.min(1, m.time / d) * 100}%` }}
+          />
+        ))}
       <div
         className={`absolute size-3.5 -translate-x-1/2 rounded-full bg-accent shadow-[0_0_0_4px_rgb(229_22_42/0.25)] transition-transform ${
           drag != null ? "scale-110" : "scale-0 group-hover:scale-100"

@@ -9,15 +9,16 @@ import { inTauri } from "../discord";
 import {
   addonCatalog, addonManifest, addonSource, newId, resourceName, type AddonInfo, type Catalog, type Source,
 } from "../sources";
+import { t, tErr } from "../i18n";
 
 const RESOURCE_LABEL: Record<string, string> = {
   stream: "Streams",
-  catalog: "Catálogos",
-  meta: "Metadatos",
-  subtitles: "Subtítulos",
-  addon_catalog: "Catálogo de addons",
+  catalog: t("Catálogos"),
+  meta: t("Metadatos"),
+  subtitles: t("Subtítulos"),
+  addon_catalog: t("Catálogo de addons"),
 };
-const TYPE_LABEL: Record<string, string> = { series: "Series", movie: "Películas", anime: "Anime", channel: "Canales", tv: "TV", other: "Otros" };
+const TYPE_LABEL: Record<string, string> = { series: t("Series"), movie: t("Películas"), anime: "Anime", channel: t("Canales"), tv: "TV", other: t("Otros") };
 
 function Logo(props: { src?: string | null; size: number }) {
   const [broken, setBroken] = useState(false);
@@ -72,7 +73,7 @@ export function AddonModal(props: {
         <div className="relative h-36 bg-gradient-to-br from-accent/60 to-black">
           {m.background && <img src={m.background} alt="" className="absolute inset-0 size-full object-cover opacity-60" />}
           <div className="absolute inset-0 bg-gradient-to-t from-panel to-transparent" />
-          <button onClick={props.onClose} title="Cerrar" className="absolute top-4 right-4 grid size-10 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60">
+          <button onClick={props.onClose} title={t("Cerrar")} className="absolute top-4 right-4 grid size-10 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60">
             <X size={19} />
           </button>
         </div>
@@ -105,25 +106,24 @@ export function AddonModal(props: {
 
           {!streams && (
             <p className="mt-5 rounded-2xl bg-panel-2 px-4 py-3 text-[14px] text-muted">
-              Este addon no ofrece streams. Por ahora Anime TV usa los addons para encontrar episodios, así que no aportaría nada.
+              {t("Este addon no ofrece streams. Por ahora Anime TV usa los addons para encontrar episodios, así que no aportaría nada.")}
             </p>
           )}
           {hints.configurationRequired && (
             <p className="mt-5 rounded-2xl bg-amber-500/10 px-4 py-3 text-[14px] text-amber-500">
-              Necesita configurarse antes de instalarlo: pulsa «Configurar», elige las opciones en la página del addon y pega aquí la URL de
-              instalación que te dé.
+              {t("Necesita configurarse antes de instalarlo: pulsa «Configurar», elige las opciones en la página del addon y pega aquí la URL de instalación que te dé.")}
             </p>
           )}
 
           <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
             {hints.configurable && (
               <button onClick={configure} className="flex h-12 items-center gap-2 rounded-full bg-panel-2 px-5 text-[15px] hover:text-accent">
-                <Settings2 size={17} /> Configurar <ExternalLink size={14} />
+                <Settings2 size={17} /> {t("Configurar")} <ExternalLink size={14} />
               </button>
             )}
             {props.installed ? (
               <button onClick={props.onRemove} className="flex h-12 items-center gap-2 rounded-full bg-panel-2 px-6 text-[15px] hover:text-accent">
-                <Trash2 size={17} /> Desinstalar
+                <Trash2 size={17} /> {t("Desinstalar")}
               </button>
             ) : (
               <button
@@ -131,7 +131,7 @@ export function AddonModal(props: {
                 disabled={!streams || hints.configurationRequired}
                 className="flex h-12 items-center gap-2 rounded-full bg-accent px-7 text-[15px] font-medium text-white disabled:opacity-40"
               >
-                <Plus size={18} /> Instalar
+                <Plus size={18} /> {t("Instalar")}
               </button>
             )}
           </div>
@@ -160,7 +160,7 @@ function AddonCard(props: { a: AddonInfo; installed: boolean; i: number; onOpen:
             </span>
           )}
         </span>
-        <span className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-muted">{m.description || "Sin descripción"}</span>
+        <span className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-muted">{m.description || t("Sin descripción")}</span>
         <span className="mt-2 flex flex-wrap gap-1.5">
           {props.a.streams && <Chip strong>Streams</Chip>}
           {m.types.slice(0, 3).map((t) => (
@@ -198,14 +198,14 @@ export function AddonsView(props: {
     if (!catalog || !inTauri) return;
     setItems(null);
     setError(null);
-    addonCatalog(catalog.url).then(setItems, (e: Error) => setError(e.message));
+    addonCatalog(catalog.url).then(setItems, (e: Error) => setError(tErr(e.message)));
   }, [catalog?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const installedUrls = new Set(props.sources.filter((s) => s.kind === "stremio").map((s) => s.url));
   const install = (a: AddonInfo) => {
     const src = addonSource(a);
     props.onSources([...props.sources.filter((s) => s.id !== src.id && s.url !== a.url), src]);
-    props.notify(`${a.manifest.name} instalado`);
+    props.notify(t("{name} instalado", { name: a.manifest.name }));
     setOpen(null);
   };
   const remove = (url: string) => {
@@ -219,7 +219,7 @@ export function AddonsView(props: {
       setOpen(await addonManifest(link));
       setLink("");
     } catch (e) {
-      props.notify((e as Error).message);
+      props.notify(tErr((e as Error).message));
     } finally {
       setLinkBusy(false);
     }
@@ -266,12 +266,12 @@ export function AddonsView(props: {
         <div>
           <h1 className="text-[26px] font-medium">Addons</h1>
           <p className="mt-1 max-w-[620px] text-[14.5px] text-muted">
-            Compatibles con los addons de Stremio. Los addons con streams aparecen al elegir un episodio, junto a tus otras fuentes.
+            {t("Compatibles con los addons de Stremio. Los addons con streams aparecen al elegir un episodio, junto a tus otras fuentes.")}
           </p>
         </div>
         <div className="flex gap-1 rounded-full bg-panel-2/60 p-1">
-          {tabBtn("store", "Tienda")}
-          {tabBtn("installed", `Instalados${installed.length ? ` · ${installed.length}` : ""}`)}
+          {tabBtn("store", t("Tienda"))}
+          {tabBtn("installed", `${t("Instalados")}${installed.length ? ` · ${installed.length}` : ""}`)}
         </div>
       </div>
 
@@ -282,7 +282,7 @@ export function AddonsView(props: {
             value={link}
             onChange={(e) => setLink(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && fromLink()}
-            placeholder="Instalar desde URL: https://…/manifest.json o stremio://…"
+            placeholder={t("Instalar desde URL: https://…/manifest.json o stremio://…")}
             className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-muted"
           />
         </label>
@@ -291,30 +291,30 @@ export function AddonsView(props: {
           disabled={!link.trim() || linkBusy || !inTauri}
           className="h-11 shrink-0 rounded-full bg-accent px-6 text-[15px] font-medium text-white disabled:opacity-40"
         >
-          {linkBusy ? "Leyendo…" : "Ver addon"}
+          {linkBusy ? t("Leyendo…") : t("Ver addon")}
         </button>
       </div>
 
-      {!inTauri && <p className="text-[14.5px] text-muted">Los addons solo funcionan en la app de escritorio.</p>}
+      {!inTauri && <p className="text-[14.5px] text-muted">{t("Los addons solo funcionan en la app de escritorio.")}</p>}
 
       {tab === "store" ? (
         <>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex h-11 min-w-[220px] flex-1 items-center gap-2.5 rounded-full bg-panel px-4 shadow-soft">
               <Search size={17} className="text-muted" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar addons" className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Buscar addons")} className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted" />
             </label>
             <button
               onClick={() => setOnlyStreams(!onlyStreams)}
               className={`h-11 rounded-full px-5 text-[14.5px] ${onlyStreams ? "bg-accent text-white" : "bg-panel shadow-soft"}`}
             >
-              Solo con streams
+              {t("Solo con streams")}
             </button>
             <select
               value={catalog?.id}
               onChange={(e) => setCatalogId(e.target.value)}
               className="h-11 rounded-full border-none bg-panel px-4 text-[14.5px] shadow-soft outline-none"
-              title="Catálogo de addons"
+              title={t("Catálogo de addons")}
             >
               {props.catalogs.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -322,7 +322,7 @@ export function AddonsView(props: {
                 </option>
               ))}
             </select>
-            <button onClick={() => setAddingCatalog(!addingCatalog)} className="h-11 rounded-full bg-panel px-4 text-[14.5px] shadow-soft hover:text-accent" title="Añadir catálogo">
+            <button onClick={() => setAddingCatalog(!addingCatalog)} className="h-11 rounded-full bg-panel px-4 text-[14.5px] shadow-soft hover:text-accent" title={t("Añadir catálogo")}>
               <Plus size={17} />
             </button>
           </div>
@@ -330,11 +330,11 @@ export function AddonsView(props: {
           {addingCatalog && (
             <div className="flex flex-col gap-2 rounded-3xl bg-panel p-4 shadow-soft">
               <p className="text-[13.5px] text-muted">
-                Un catálogo es una lista JSON de addons en el formato de Stremio (<code>[{"{ transportUrl, manifest }"}]</code>). La app solo trae el
-                oficial; añade otros bajo tu responsabilidad.
+                {t("Un catálogo es una lista JSON de addons en el formato de Stremio")} (<code>[{"{ transportUrl, manifest }"}]</code>).{" "}
+                {t("La app solo trae el oficial; añade otros bajo tu responsabilidad.")}
               </p>
               <div className="flex gap-2 max-sm:flex-col">
-                <input value={newCatalog.name} onChange={(e) => setNewCatalog({ ...newCatalog, name: e.target.value })} placeholder="Nombre" className="h-11 rounded-2xl border border-line bg-panel-2 px-4 text-[15px] outline-none focus:border-accent sm:w-48" />
+                <input value={newCatalog.name} onChange={(e) => setNewCatalog({ ...newCatalog, name: e.target.value })} placeholder={t("Nombre")} className="h-11 rounded-2xl border border-line bg-panel-2 px-4 text-[15px] outline-none focus:border-accent sm:w-48" />
                 <input value={newCatalog.url} onChange={(e) => setNewCatalog({ ...newCatalog, url: e.target.value })} placeholder="https://…/addons.json" className="h-11 flex-1 rounded-2xl border border-line bg-panel-2 px-4 text-[15px] outline-none focus:border-accent" />
                 <button
                   disabled={!newCatalog.name.trim() || !/^https?:\/\//.test(newCatalog.url.trim())}
@@ -347,7 +347,7 @@ export function AddonsView(props: {
                   }}
                   className="h-11 rounded-full bg-accent px-5 text-[15px] font-medium text-white disabled:opacity-40"
                 >
-                  Añadir
+                  {t("Añadir")}
                 </button>
               </div>
               {props.catalogs.length > 1 && (
@@ -355,7 +355,7 @@ export function AddonsView(props: {
                   {props.catalogs.slice(1).map((c) => (
                     <span key={c.id} className="flex items-center gap-1 rounded-full bg-panel-2 py-1 pr-1 pl-3 text-[13.5px]">
                       {c.name}
-                      <button onClick={() => props.onCatalogs(props.catalogs.filter((x) => x.id !== c.id))} title="Quitar catálogo" className="grid size-6 place-items-center rounded-full hover:text-accent">
+                      <button onClick={() => props.onCatalogs(props.catalogs.filter((x) => x.id !== c.id))} title={t("Quitar catálogo")} className="grid size-6 place-items-center rounded-full hover:text-accent">
                         <X size={13} />
                       </button>
                     </span>
@@ -366,7 +366,7 @@ export function AddonsView(props: {
           )}
 
           {error ? (
-            <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-[14.5px] text-amber-500">No se pudo cargar el catálogo: {error}</p>
+            <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-[14.5px] text-amber-500">{t("No se pudo cargar el catálogo: {error}", { error })}</p>
           ) : items === null && inTauri ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
               {Array.from({ length: 6 }, (_, k) => (
@@ -374,7 +374,7 @@ export function AddonsView(props: {
               ))}
             </div>
           ) : shown.length === 0 ? (
-            <p className="py-10 text-center text-muted">{items?.length ? "Ningún addon coincide." : ""}</p>
+            <p className="py-10 text-center text-muted">{items?.length ? t("Ningún addon coincide.") : ""}</p>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
               {shown.map((a, i) => (
@@ -388,8 +388,8 @@ export function AddonsView(props: {
           <span className="grid size-14 place-items-center rounded-full bg-accent-soft text-accent">
             <Puzzle size={24} />
           </span>
-          <h2 className="text-[19px] font-medium">Aún no tienes addons</h2>
-          <p className="max-w-[420px] text-[14.5px] text-muted">Instala uno desde la tienda o pega la URL de un addon arriba.</p>
+          <h2 className="text-[19px] font-medium">{t("Aún no tienes addons")}</h2>
+          <p className="max-w-[420px] text-[14.5px] text-muted">{t("Instala uno desde la tienda o pega la URL de un addon arriba.")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">

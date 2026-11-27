@@ -2,13 +2,13 @@
 // "continue watching", and the floating dock used on narrow windows.
 
 import {
-  Compass, Download, Heart, Home, Moon, Play, Puzzle, Search, Settings, Sun, Tv,
-} from "lucide-react";
+  Compass, Download, Heart, Home, Moon, Play, Puzzle, Search, Settings, Sun, Tv, NotebookPen } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { DiscordStatus } from "../discord";
 import type { Progress, Theme } from "../store";
+import { t } from "../i18n";
 
-export type ViewKind = "home" | "explore" | "favorites" | "downloads" | "addons" | "settings" | "detail";
+export type ViewKind = "home" | "explore" | "favorites" | "notes" | "downloads" | "addons" | "settings" | "detail";
 
 export function Logo() {
   return (
@@ -33,10 +33,10 @@ function DiscordGlyph({ size = 16 }: { size?: number }) {
 }
 
 const STATUS_TEXT: Record<DiscordStatus, string> = {
-  off: "Conectar Discord",
-  connecting: "Conectando…",
+  off: t("Conectar Discord"),
+  connecting: t("Conectando…"),
   on: "Discord",
-  error: "Discord sin conexión",
+  error: t("Discord sin conexión"),
 };
 
 /** Category chips with a pill that slides to the active one. */
@@ -81,7 +81,7 @@ function Chips(props: {
         ))}
       </span>
       <button onClick={props.onMore} className="h-11 shrink-0 rounded-full px-5 text-[15px] font-medium hover:bg-panel">
-        Más
+        {t("Más")}
       </button>
     </nav>
   );
@@ -108,7 +108,7 @@ export function TopBar(props: {
         <input
           value={props.query}
           onChange={(e) => props.onQuery(e.target.value)}
-          placeholder="Buscar anime"
+          placeholder={t("Buscar anime")}
           className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted"
         />
       </label>
@@ -117,7 +117,7 @@ export function TopBar(props: {
 
       <button
         onClick={props.onTheme}
-        title={props.theme === "dark" ? "Tema claro" : "Tema oscuro"}
+        title={props.theme === "dark" ? t("Tema claro") : t("Tema oscuro")}
         className="grid size-12 shrink-0 place-items-center rounded-full bg-panel shadow-soft hover:text-accent"
       >
         {props.theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
@@ -140,14 +140,15 @@ export function TopBar(props: {
 }
 
 const NAV: { kind: ViewKind; label: string; icon: ReactNode }[] = [
-  { kind: "home", label: "Inicio", icon: <Home size={19} /> },
-  { kind: "explore", label: "Explorar", icon: <Compass size={19} /> },
-  { kind: "favorites", label: "Favoritos", icon: <Heart size={19} /> },
+  { kind: "home", label: t("Inicio"), icon: <Home size={19} /> },
+  { kind: "explore", label: t("Explorar"), icon: <Compass size={19} /> },
+  { kind: "favorites", label: t("Favoritos"), icon: <Heart size={19} /> },
+  { kind: "notes", label: t("Notas"), icon: <NotebookPen size={19} /> },
 ];
 const NAV2: { kind: ViewKind; label: string; icon: ReactNode }[] = [
   { kind: "addons", label: "Addons", icon: <Puzzle size={19} /> },
-  { kind: "downloads", label: "Descargas", icon: <Download size={19} /> },
-  { kind: "settings", label: "Ajustes", icon: <Settings size={19} /> },
+  { kind: "downloads", label: t("Descargas"), icon: <Download size={19} /> },
+  { kind: "settings", label: t("Ajustes"), icon: <Settings size={19} /> },
 ];
 
 export function Sidebar(props: {
@@ -182,10 +183,10 @@ export function Sidebar(props: {
       <div className="mx-4 my-4 h-px bg-gradient-to-r from-transparent via-line to-transparent" />
       <nav className="flex flex-col gap-1">{NAV2.map(item)}</nav>
 
-      <h3 className="mt-7 mb-3 px-3 text-[15px] font-medium">Continuar viendo</h3>
+      <h3 className="mt-7 mb-3 px-3 text-[15px] font-medium">{t("Continuar viendo")}</h3>
       <div className="-mr-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-2">
         {props.progress.length === 0 && (
-          <p className="px-3 text-sm text-muted">Lo que empieces a ver aparecerá aquí.</p>
+          <p className="px-3 text-sm text-muted">{t("Lo que empieces a ver aparecerá aquí.")}</p>
         )}
         {props.progress.map((p) => (
           <div key={p.id} className="group flex items-center gap-3 rounded-2xl p-2 hover:bg-panel-2">
@@ -198,7 +199,7 @@ export function Sidebar(props: {
             </button>
             <button
               onClick={() => props.onResume(p)}
-              title={`Ver episodio ${p.episode}`}
+              title={t("Ver episodio {n}", { n: p.episode })}
               className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-accent hover:text-white"
             >
               <Play size={15} fill="currentColor" />

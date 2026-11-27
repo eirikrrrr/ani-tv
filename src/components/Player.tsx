@@ -16,6 +16,7 @@ import * as player from "../player";
 import type { DownloadSettings, EngineStatus, Opened, PlayerAction } from "../player";
 import { formatSize, type Prefs, type Ranked } from "../sources";
 import type { PickTarget } from "./Picker";
+import { t, tErr } from "../i18n";
 
 type Phase = "opening" | "buffering" | "starting" | "playing" | "closed" | "error";
 
@@ -47,26 +48,29 @@ export function PlayerSession(props: {
   const [elapsed, setElapsed] = useState(0);
   const launched = useRef(false);
   const ended = useRef(false);
-  const title = `${media.title} · Episodio ${episode}`;
+  const title = `${media.title} · ${t("Episodio {n}", { n: episode })}`;
   const audio = props.prefs.languages.filter((l) => l.track === "audio").map((l) => l.lang);
   const subs = props.prefs.languages.filter((l) => l.track === "subs").map((l) => l.lang);
 
   const fail = (e: unknown) => {
-    setError(e instanceof Error ? e.message : String(e));
+    setError(tErr(e instanceof Error ? e.message : String(e)));
     setPhase("error");
   };
 
   const launch = async (url: string) => {
     setPhase("starting");
     try {
+      // the first launch honours the note's moment; reopening resumes in mpv
+      const start = launched.current ? null : (props.target.start ?? null);
       const r = await player.launch(url, title, audio, subs, {
+        mediaId: media.id,
         series: media.title,
         episode,
         release: props.release.title,
         cover: media.cover ?? null,
         banner: media.banner ?? null,
         hasNext: !!props.onNext,
-      });
+      }, start);
       setEmbedded(r.embedded);
       if (!launched.current) props.onPlaying();
       launched.current = true;
@@ -88,7 +92,7 @@ export function PlayerSession(props: {
     // magnet built from a feed's info hash, so it goes first
     const sources = [r.torrentUrl, r.magnet].filter((s): s is string => !!s);
     if (sources.length === 0) {
-      fail("Este resultado no tiene enlace descargable");
+      fail(t("Este resultado no tiene enlace descargable"));
       return;
     }
     player
@@ -131,8 +135,10 @@ export function PlayerSession(props: {
         if (launched.current && inTauri) {
           emitTo(player.OVERLAY, "player-stats", {
             downBps: s.downBps,
+            upBps: s.upBps,
             peers: s.peers,
             progress: s.fileLen ? s.fileDownloaded / s.fileLen : 0,
+            finished: s.fileLen > 0 && s.fileDownloaded >= s.fileLen,
           }).catch(() => {});
         }
       } catch {
@@ -241,18 +247,21 @@ export function PlayerSession(props: {
         onClick={finish}
         className="absolute top-5 left-5 flex h-11 items-center gap-2 rounded-full bg-white/10 px-4 text-[15px] backdrop-blur-md transition-colors hover:bg-white/20"
       >
-        <ArrowLeft size={18} /> Volver
+        <ArrowLeft size={18} /> {t("Volver")}
       </button>
 
       <div className="relative grid h-full place-items-center p-6">
         <div className="fade-in flex w-full max-w-[760px] items-center gap-8 max-sm:flex-col max-sm:text-center">
-          <img
-            src={media.cover}
-            alt=""
-            className="aspect-[2/3] w-[170px] shrink-0 rounded-2xl object-cover shadow-[0_25px_60px_rgb(0_0_0/0.6)] ring-1 ring-white/10 max-sm:w-[130px]"
-          />
+          <div className="cinema-poster relative shrink-0">
+            <div className="cinema-glow absolute -inset-6 rounded-[32px] bg-accent/40 blur-3xl" />
+            <img
+              src={media.cover}
+              alt=""
+              className="relative aspect-[2/3] w-[170px] rounded-2xl object-cover shadow-[0_25px_60px_rgb(0_0_0/0.6)] ring-1 ring-white/10 max-sm:w-[130px]"
+            />
+          </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold tracking-[0.18em] text-accent uppercase">Episodio {episode}</p>
+            <p className="text-[13px] font-semibold tracking-[0.18em] text-accent uppercase">{t("Episodio {n}", { n: episode })}</p>
             <h2 className="mt-1 line-clamp-2 text-[34px] leading-tight font-semibold max-sm:text-[26px]">{media.title}</h2>
             <p className="mt-2 truncate text-[13px] text-white/50" title={props.release.title}>
               {props.release.title}
@@ -265,15 +274,15 @@ export function PlayerSession(props: {
                     <AlertTriangle size={18} />
                   </span>
                   <div className="min-w-0">
-                    <p className="font-medium">No se pudo reproducir</p>
+                    <p className="font-medium">{t("No se pudo reproducir")}</p>
                     <p className="mt-0.5 text-[14px] break-words text-white/65">{error}</p>
                   </div>
                 </div>
                 <div className="mt-6 flex flex-wrap gap-3 max-sm:justify-center">
                   <PillButton accent onClick={repick} icon={<RefreshCw size={16} />}>
-                    Probar otro resultado
+                    {t("Probar otro resultado")}
                   </PillButton>
-                  <PillButton onClick={finish}>Cerrar</PillButton>
+                  <PillButton onClick={finish}>{t("Cerrar")}</PillButton>
                 </div>
               </>
             ) : (
@@ -294,9 +303,9 @@ export function PlayerSession(props: {
                     <>
                       <Stat icon={<Download size={13} />}>{player.formatSpeed(st.downBps)}</Stat>
                       <Stat icon={<Upload size={13} />}>{player.formatSpeed(st.upBps)}</Stat>
-                      <Stat icon={<Users size={13} />}>{st.peers} peers</Stat>
+                      <Stat icon={<Users size={13} />}>{t("{n} peers", { n: st.peers })}</Stat>
                       <span>
-                        {formatSize(st.fileDownloaded) || "0 B"} de {formatSize(st.fileLen)}
+                        {t("{done} de {total}", { done: formatSize(st.fileDownloaded) || "0 B", total: formatSize(st.fileLen) })}
                       </span>
                     </>
                   ) : (
@@ -305,9 +314,9 @@ export function PlayerSession(props: {
                 </div>
                 {slow && (
                   <p className="mt-4 text-[13.5px] text-white/55">
-                    Tarda más de lo normal: puede que pocos compartan este archivo. Puedes esperar o{" "}
+                    {t("Tarda más de lo normal: puede que pocos compartan este archivo. Puedes esperar o")}{" "}
                     <button onClick={repick} className="text-accent underline-offset-2 hover:underline">
-                      elegir otro resultado
+                      {t("elegir otro resultado")}
                     </button>
                     .
                   </p>
@@ -315,10 +324,10 @@ export function PlayerSession(props: {
                 <div className="mt-6 flex flex-wrap gap-3 max-sm:justify-center">
                   {phase === "buffering" && (
                     <PillButton accent onClick={() => opened && launch(opened.url)} icon={<Play size={15} fill="currentColor" />}>
-                      Ver ya
+                      {t("Ver ya")}
                     </PillButton>
                   )}
-                  <PillButton onClick={finish}>Cancelar</PillButton>
+                  <PillButton onClick={finish}>{t("Cancelar")}</PillButton>
                 </div>
               </>
             )}
@@ -331,7 +340,7 @@ export function PlayerSession(props: {
 }
 
 function Steps(props: { step: number }) {
-  const labels = ["Conectando", "Cargando", "Abriendo"];
+  const labels = [t("Conectando"), t("Cargando"), t("Abriendo")];
   return (
     <ol className="mt-6 flex flex-wrap items-center gap-2 max-sm:justify-center">
       {labels.map((l, i) => {
@@ -344,7 +353,7 @@ function Steps(props: { step: number }) {
                 active ? "bg-white text-black" : done ? "bg-white/15 text-white" : "bg-white/[0.06] text-white/40"
               }`}
             >
-              {done ? <Check size={14} /> : active ? <Loader2 size={14} className="animate-spin" /> : <span className="size-1.5 rounded-full bg-current" />}
+              {done ? <Check size={14} className="step-done" /> : active ? <Loader2 size={14} className="animate-spin" /> : <span className="size-1.5 rounded-full bg-current" />}
               {l}
             </span>
             {i < labels.length - 1 && <span className={`h-px w-5 ${done ? "bg-white/40" : "bg-white/15"}`} />}
@@ -396,25 +405,25 @@ function MiniCard(props: {
         <img src={props.cover} alt="" className="h-16 w-11 rounded-lg object-cover" />
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-wide text-accent uppercase">
-            <MonitorPlay size={13} /> {props.playing ? "Reproduciendo" : "Reproductor cerrado"}
+            <MonitorPlay size={13} /> {props.playing ? t("Reproduciendo") : t("Reproductor cerrado")}
           </p>
           <p className="truncate text-[15px] font-medium">{props.series}</p>
           <p className="flex gap-3 text-[13px] text-muted">
-            <span>Episodio {props.episode}</span>
+            <span>{t("Episodio {n}", { n: props.episode })}</span>
             {props.stats && <span>↓ {player.formatSpeed(props.stats.downBps)}</span>}
           </p>
         </div>
       </div>
       <div className="flex items-center gap-2 px-4 pb-4">
         <button onClick={props.onReopen} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-panel-2 text-[14px] hover:text-accent">
-          <Play size={14} fill="currentColor" /> {props.playing ? "Reabrir" : "Seguir viendo"}
+          <Play size={14} fill="currentColor" /> {props.playing ? t("Reabrir") : t("Seguir viendo")}
         </button>
         {props.onNext && (
-          <button onClick={props.onNext} title="Siguiente episodio" className="grid size-10 place-items-center rounded-full bg-panel-2 hover:text-accent">
+          <button onClick={props.onNext} title={t("Siguiente episodio")} className="grid size-10 place-items-center rounded-full bg-panel-2 hover:text-accent">
             <SkipForward size={16} />
           </button>
         )}
-        <button onClick={props.onEnd} title="Terminar" className="grid size-10 place-items-center rounded-full bg-accent text-white">
+        <button onClick={props.onEnd} title={t("Terminar")} className="grid size-10 place-items-center rounded-full bg-accent text-white">
           <Square size={13} fill="currentColor" />
         </button>
       </div>

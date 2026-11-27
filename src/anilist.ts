@@ -1,6 +1,8 @@
 // AniList public GraphQL API: catalogue, covers and banners. No key needed
 // (rate limit ~90 requests/min), so results are cached per query.
 
+import { lang, t } from "./i18n";
+
 export type Media = {
   id: number;
   title: string;
@@ -141,7 +143,7 @@ async function post<T>(query: string, variables: Record<string, unknown>, retry 
   }
   const body = await r.json().catch(() => null);
   if (!r.ok || !body || body.errors) {
-    const msg = r.status === 429 ? "demasiadas peticiones, prueba en un minuto" : body?.errors?.[0]?.message ?? `HTTP ${r.status}`;
+    const msg = r.status === 429 ? t("demasiadas peticiones, prueba en un minuto") : body?.errors?.[0]?.message ?? `HTTP ${r.status}`;
     throw new Error(`AniList: ${msg}`);
   }
   return body.data as T;
@@ -205,7 +207,7 @@ const FORMAT: Record<string, string> = {
   TV: "Serie", TV_SHORT: "Serie corta", MOVIE: "Película", OVA: "OVA", ONA: "ONA",
   SPECIAL: "Especial", MUSIC: "Música",
 };
-export const formatLabel = (f: string | null) => (f ? FORMAT[f] ?? f : "");
+export const formatLabel = (f: string | null) => (f ? (FORMAT[f] ? t(FORMAT[f]) : f) : "");
 
 const GENRE_ES: Record<string, string> = {
   Action: "Acción", Adventure: "Aventura", Comedy: "Comedia", Drama: "Drama",
@@ -214,7 +216,8 @@ const GENRE_ES: Record<string, string> = {
   "Sci-Fi": "Ciencia ficción", "Slice of Life": "Recuentos de la vida", Sports: "Deportes",
   Supernatural: "Sobrenatural", Thriller: "Suspenso", Ecchi: "Ecchi", "Mahou Shoujo": "Mahou Shoujo",
 };
-export const genreLabel = (g: string) => GENRE_ES[g] ?? g;
+/** AniList genres are English: the Spanish name only in Spanish. */
+export const genreLabel = (g: string) => (lang === "es" ? GENRE_ES[g] ?? g : g);
 export const GENRES = [
   "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Romance", "Sci-Fi",
   "Slice of Life", "Mystery", "Psychological", "Sports", "Supernatural", "Horror", "Mecha",

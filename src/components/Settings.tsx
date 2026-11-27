@@ -1,4 +1,4 @@
-import { ImagePlus, Moon, Sun, X } from "lucide-react";
+import { ImagePlus, Languages, Moon, Sun, X } from "lucide-react";
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { DEFAULT_CLIENT_ID, inTauri, type DiscordStatus } from "../discord";
@@ -8,6 +8,7 @@ import { CURSORS, CursorPreview, MAX_CUSTOM_BYTES, type CustomCursor } from "./C
 import { deleteImage, putImage } from "../cursorStore";
 import { newId } from "../sources";
 import { LanguagePrefs, SourcesList } from "./SourcesSettings";
+import { lang, setLang, t } from "../i18n";
 
 function Card(props: { title: string; text?: string; children: ReactNode; id?: string }) {
   return (
@@ -20,10 +21,10 @@ function Card(props: { title: string; text?: string; children: ReactNode; id?: s
 }
 
 const STATUS: Record<DiscordStatus, string> = {
-  off: "Desconectado",
-  connecting: "Conectando…",
-  on: "Conectado: tus amigos ven lo que estás viendo",
-  error: "Sin conexión",
+  off: t("Desconectado"),
+  connecting: t("Conectando…"),
+  on: t("Conectado: tus amigos ven lo que estás viendo"),
+  error: t("Sin conexión"),
 };
 
 export function SettingsView(props: {
@@ -53,11 +54,11 @@ export function SettingsView(props: {
     setCursorError(null);
     if (!f) return;
     if (!/^image\/(gif|png|apng|webp)$/.test(f.type)) {
-      setCursorError("Usa una imagen GIF, PNG, APNG o WebP.");
+      setCursorError(t("Usa una imagen GIF, PNG, APNG o WebP."));
       return;
     }
     if (f.size > MAX_CUSTOM_BYTES) {
-      setCursorError(`La imagen pesa ${(f.size / 1048576).toFixed(1)} MB; el máximo es ${MAX_CUSTOM_BYTES / 1048576} MB.`);
+      setCursorError(t("La imagen pesa {size} MB; el máximo es {max} MB.", { size: (f.size / 1048576).toFixed(1), max: MAX_CUSTOM_BYTES / 1048576 }));
       return;
     }
     const c: CustomCursor = { id: newId(), name: f.name.replace(/\.[^.]+$/, "").slice(0, 24) };
@@ -66,7 +67,7 @@ export function SettingsView(props: {
         props.onCustomCursors([...props.customCursors, c]);
         props.onLook({ ...look, cursor: `custom:${c.id}` });
       },
-      () => setCursorError("No se pudo guardar la imagen (¿disco lleno?)."),
+      () => setCursorError(t("No se pudo guardar la imagen (¿disco lleno?).")),
     );
   };
   const removeCursor = (id: string) => {
@@ -75,11 +76,11 @@ export function SettingsView(props: {
     if (look.cursor === `custom:${id}`) props.onLook({ ...look, cursor: "system" });
   };
   const d = props.discord;
-  const seg = (t: Theme, label: string, icon: ReactNode) => (
+  const seg = (th: Theme, label: string, icon: ReactNode) => (
     <button
-      onClick={() => props.onTheme(t)}
+      onClick={() => props.onTheme(th)}
       className={`flex h-11 items-center gap-2 rounded-full px-5 text-[15px] ${
-        props.theme === t ? "bg-accent text-white" : "hover:bg-panel-2"
+        props.theme === th ? "bg-accent text-white" : "hover:bg-panel-2"
       }`}
     >
       {icon} {label}
@@ -87,12 +88,31 @@ export function SettingsView(props: {
   );
   return (
     <div className="fade-in flex max-w-[820px] flex-col gap-5">
-      <h1 className="text-[26px] font-medium">Ajustes</h1>
+      <h1 className="text-[26px] font-medium">{t("Ajustes")}</h1>
 
-      <Card title="Apariencia">
+      <Card id="app-language" title="Idioma de la app · App language">
         <div className="flex w-fit gap-1 rounded-full bg-panel-2/60 p-1">
-          {seg("dark", "Oscuro", <Moon size={16} />)}
-          {seg("light", "Claro", <Sun size={16} />)}
+          {(
+            [
+              ["es", "Español"],
+              ["en", "English"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => id !== lang && setLang(id)}
+              className={`flex h-11 items-center gap-2 rounded-full px-5 text-[15px] ${lang === id ? "bg-accent text-white" : "hover:bg-panel-2"}`}
+            >
+              <Languages size={16} /> {label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card title={t("Apariencia")}>
+        <div className="flex w-fit gap-1 rounded-full bg-panel-2/60 p-1">
+          {seg("dark", t("Oscuro"), <Moon size={16} />)}
+          {seg("light", t("Claro"), <Sun size={16} />)}
         </div>
         <label className="mt-5 flex items-center gap-3 text-[15px]">
           <input
@@ -101,14 +121,14 @@ export function SettingsView(props: {
             onChange={(e) => props.onLook({ ...look, effects: e.target.checked })}
             className="size-5 accent-[var(--atv-accent)]"
           />
-          Efectos visuales (pétalos de sakura, zoom en la portada)
+          {t("Efectos visuales (pétalos de sakura, zoom en la portada)")}
         </label>
       </Card>
 
       <Card
         id="cursor"
         title="Cursor"
-        text="Cambia el puntero del ratón por un personaje animado: salta al moverse, se emociona sobre los botones y se duerme si no lo mueves."
+        text={t("Cambia el puntero del ratón por un personaje animado: salta al moverse, se emociona sobre los botones y se duerme si no lo mueves.")}
       >
         <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3">
           {CURSORS.map((c) => {
@@ -151,7 +171,7 @@ export function SettingsView(props: {
                 </button>
                 <button
                   onClick={() => removeCursor(c.id)}
-                  title="Quitar este personaje"
+                  title={t("Quitar este personaje")}
                   className="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-panel opacity-0 shadow-soft group-hover:opacity-100 hover:text-accent"
                 >
                   <X size={14} />
@@ -166,7 +186,7 @@ export function SettingsView(props: {
             <span className="grid h-[60px] place-items-center">
               <ImagePlus size={26} />
             </span>
-            Añadir personaje
+            {t("Añadir personaje")}
           </button>
           <input
             ref={file}
@@ -180,12 +200,11 @@ export function SettingsView(props: {
           />
         </div>
         <p className="mt-3 text-[13.5px] text-muted">
-          Añade el personaje que quieras con un GIF, APNG o WebP animado (fondo transparente, máx. 10 MB). Se guarda solo en este
-          equipo.
+          {t("Añade el personaje que quieras con un GIF, APNG o WebP animado (fondo transparente, máx. 10 MB). Se guarda solo en este equipo.")}
         </p>
         {cursorError && <p className="mt-1 text-[13.5px] text-amber-500">{cursorError}</p>}
         <div className={`mt-5 flex items-center gap-3 ${look.cursor === "system" ? "pointer-events-none opacity-40" : ""}`}>
-          <span className="text-[14px] text-muted">Tamaño</span>
+          <span className="text-[14px] text-muted">{t("Tamaño")}</span>
           <div className="flex w-fit gap-1 rounded-full bg-panel-2/60 p-1">
             {(["s", "m", "l", "xl"] as const).map((z) => (
               <button
@@ -193,7 +212,7 @@ export function SettingsView(props: {
                 onClick={() => props.onLook({ ...look, cursorSize: z })}
                 className={`h-9 rounded-full px-4 text-[14.5px] ${look.cursorSize === z ? "bg-accent text-white" : "hover:bg-panel-2"}`}
               >
-                {z === "s" ? "Pequeño" : z === "m" ? "Mediano" : z === "l" ? "Grande" : "×2"}
+                {z === "s" ? t("Pequeño") : z === "m" ? t("Mediano") : z === "l" ? t("Grande") : "×2"}
               </button>
             ))}
           </div>
@@ -203,7 +222,7 @@ export function SettingsView(props: {
       <Card
         id="discord"
         title="Discord"
-        text="Mientras navegas, tu perfil muestra el logo de Anime TV; al ver un episodio cambia a la portada de la serie y «Viendo …». Necesita Discord abierto en este equipo; no hace falta añadir la app a Juegos registrados."
+        text={t("Mientras navegas, tu perfil muestra el logo de Anime TV; al ver un episodio cambia a la portada de la serie y «Viendo …». Necesita Discord abierto en este equipo; no hace falta añadir la app a Juegos registrados.")}
       >
         <label className="flex items-center gap-3 text-[15px]">
           <input
@@ -212,21 +231,21 @@ export function SettingsView(props: {
             onChange={(e) => props.onDiscord({ ...d, enabled: e.target.checked })}
             className="size-5 accent-[var(--atv-accent)]"
           />
-          Compartir lo que veo en Discord
+          {t("Compartir lo que veo en Discord")}
         </label>
 
         <div className="mt-5 flex items-center gap-4">
           <p className="flex-1 text-[14.5px]">
-            Estado:{" "}
+            {t("Estado:")}{" "}
             <span className={props.status === "on" ? "text-emerald-500" : props.status === "error" ? "text-amber-500" : "text-muted"}>
               {STATUS[props.status]}
             </span>
-            {props.error && <span className="block text-[13px] text-muted">{props.error}. Se reintenta solo cada 30 s.</span>}
-            {!inTauri && <span className="block text-[13px] text-muted">Solo disponible en la app de escritorio.</span>}
+            {props.error && <span className="block text-[13px] text-muted">{t("{error}. Se reintenta solo cada 30 s.", { error: props.error })}</span>}
+            {!inTauri && <span className="block text-[13px] text-muted">{t("Solo disponible en la app de escritorio.")}</span>}
           </p>
           {props.status === "on" ? (
             <button onClick={props.onDisconnect} className="h-11 shrink-0 rounded-full bg-panel-2 px-6 text-[15px] hover:text-accent">
-              Desconectar
+              {t("Desconectar")}
             </button>
           ) : (
             <button
@@ -234,16 +253,16 @@ export function SettingsView(props: {
               disabled={props.status === "connecting" || !inTauri}
               className="h-11 shrink-0 rounded-full bg-accent px-6 text-[15px] font-medium text-white disabled:opacity-50"
             >
-              Conectar
+              {t("Conectar")}
             </button>
           )}
         </div>
         <details className="mt-5 text-[14px] text-muted">
-          <summary className="cursor-pointer hover:text-text">Avanzado: usar mi propia aplicación de Discord</summary>
+          <summary className="cursor-pointer hover:text-text">{t("Avanzado: usar mi propia aplicación de Discord")}</summary>
           <p className="mt-2">
-            Por defecto se usa la aplicación «Anime TV». Si creas la tuya en{" "}
-            <span className="text-text select-all">discord.com/developers/applications</span> (su nombre e icono son los que se ven en
-            tu perfil), pega aquí su <em>Application ID</em> y pulsa Conectar.
+            {t("Por defecto se usa la aplicación «Anime TV». Si creas la tuya en")}{" "}
+            <span className="text-text select-all">discord.com/developers/applications</span>{" "}
+            {t("(su nombre e icono son los que se ven en tu perfil), pega aquí su Application ID y pulsa Conectar.")}
           </p>
           <input
             value={d.clientId}
@@ -257,23 +276,23 @@ export function SettingsView(props: {
 
       <Card
         id="languages"
-        title="Idiomas preferidos"
-        text="Al elegir un episodio, primero se muestran los releases en estos idiomas, en este orden."
+        title={t("Idiomas preferidos")}
+        text={t("Al elegir un episodio, primero se muestran los releases en estos idiomas, en este orden.")}
       >
         <LanguagePrefs prefs={props.prefs} onChange={props.onPrefs} />
       </Card>
 
       <Card
         id="sources"
-        title="Fuentes"
-        text="Indexadores Torznab (Prowlarr, Jackett) o feeds RSS donde la app busca los episodios. Se guardan solo en este equipo."
+        title={t("Fuentes")}
+        text={t("Indexadores Torznab (Prowlarr, Jackett) o feeds RSS donde la app busca los episodios. Se guardan solo en este equipo.")}
       >
         <SourcesList sources={props.sources} onChange={props.onSources} />
       </Card>
 
-      <Card title="Acerca de">
+      <Card title={t("Acerca de")}>
         <p className="text-[14.5px] text-muted">
-          Anime TV {__APP_VERSION__} · catálogo e imágenes de AniList. La app no aloja ni distribuye contenido.
+          Anime TV {__APP_VERSION__} · {t("catálogo e imágenes de AniList. La app no aloja ni distribuye contenido.")}
         </p>
       </Card>
     </div>

@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { inTauri } from "./discord";
+import { t, tErr } from "./i18n";
 
 export type Opened = {
   id: number;
@@ -73,10 +74,10 @@ export const normalizeDownloads = (s: Partial<DownloadSettings> | null | undefin
 /** Sharing (seeding, incoming connections) only counts with consent. */
 export const sharingAllowed = (s: DownloadSettings) => !!s.consent;
 
-const msg = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+const msg = (e: unknown) => tErr(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!inTauri) throw new Error("El reproductor solo funciona en la app de escritorio");
+  if (!inTauri) throw new Error(t("El reproductor solo funciona en la app de escritorio"));
   try {
     return await invoke<T>(cmd, args);
   } catch (e) {
@@ -107,6 +108,7 @@ export const close = (id: number, deleteFiles: boolean) => call<void>("play_clos
 
 /** What the embedded player's controls show. */
 export type PlayerInfo = {
+  mediaId: number;
   series: string;
   episode: number;
   release: string;
@@ -115,8 +117,8 @@ export type PlayerInfo = {
   hasNext: boolean;
 };
 
-export const launch = (url: string, title: string, audio: string[], subs: string[], info: PlayerInfo) =>
-  call<{ embedded: boolean }>("play_launch", { args: { url, title, audio, subs, info } });
+export const launch = (url: string, title: string, audio: string[], subs: string[], info: PlayerInfo, start: number | null) =>
+  call<{ embedded: boolean }>("play_launch", { args: { url, title, audio, subs, info, start } });
 
 export const stop = () => call<void>("play_stop");
 
@@ -142,7 +144,7 @@ export function onMpv(cb: (e: MpvEvent) => void): Promise<UnlistenFn> {
 }
 
 /** Torrent stats the main window forwards to the controls. */
-export type Stats = { downBps: number; peers: number; progress: number } | null;
+export type Stats = { downBps: number; upBps: number; peers: number; progress: number; finished: boolean } | null;
 /** What the controls ask the main window to do. */
 export type PlayerAction = { kind: "close" | "next" };
 
@@ -150,10 +152,10 @@ export type PlayerAction = { kind: "close" | "next" };
 export const readyToPlay = (s: EngineStatus) =>
   s.fileLen > 0 && s.fileDownloaded >= Math.min(s.fileLen, Math.max(4 * 1024 * 1024, Math.min(12 * 1024 * 1024, s.fileLen * 0.03)));
 
-/** "Sin límite", "500 KB/s", "2 MB/s" for a KiB/s limit. */
+/** t("Sin límite"), "500 KB/s", "2 MB/s" for a KiB/s limit. */
 export function formatLimit(kib: number | null): string {
-  if (kib == null) return "Sin límite";
-  if (kib === 0) return "Mínimo";
+  if (kib == null) return t("Sin límite");
+  if (kib === 0) return t("Mínimo");
   return kib >= 1024 ? `${+(kib / 1024).toFixed(1)} MB/s` : `${kib} KB/s`;
 }
 

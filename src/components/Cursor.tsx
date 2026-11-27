@@ -5,6 +5,7 @@
 // The characters are original drawings (no characters from existing series).
 
 import { useEffect, useRef, type ComponentType } from "react";
+import { t } from "../i18n";
 
 export type BuiltinCursor = "neko" | "kitsune" | "mochi";
 /** "system", a built-in character, or "custom:<id>" (an image the user added) */
@@ -19,7 +20,7 @@ export const MAX_CUSTOM_BYTES = 10 * 1024 * 1024;
 export type CursorSize = "s" | "m" | "l" | "xl";
 
 export const CURSORS: { id: "system" | BuiltinCursor; label: string }[] = [
-  { id: "system", label: "Sistema" },
+  { id: "system", label: t("Sistema") },
   { id: "neko", label: "Neko" },
   { id: "kitsune", label: "Kitsune" },
   { id: "mochi", label: "Mochi" },

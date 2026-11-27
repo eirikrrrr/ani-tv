@@ -711,3 +711,108 @@ html.overlay #root {
     animation: none;
   }
 }
+
+/* ---- motion round 3: player, notes, sharing ----------------------------------- */
+
+.seek-ripple {
+  background: radial-gradient(ellipse at center, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04) 70%);
+  animation: atv-ripple 0.65s ease-out forwards;
+}
+@keyframes atv-ripple {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.seek-chevrons > * {
+  animation: atv-chevron 0.6s ease-in-out both;
+}
+.seek-chevrons > *:nth-child(2) { animation-delay: 0.1s; }
+.seek-chevrons > *:nth-child(3) { animation-delay: 0.2s; }
+@keyframes atv-chevron {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+.icon-swap {
+  animation: atv-icon-swap 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+@keyframes atv-icon-swap {
+  from { transform: scale(0.4) rotate(-45deg); opacity: 0; }
+}
+
+.countdown-ring {
+  stroke-dasharray: 100;
+  animation: atv-countdown 10s linear forwards;
+}
+@keyframes atv-countdown {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+.next-card {
+  animation: atv-slide-left 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+.notes-panel {
+  animation: atv-slide-left 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.05) both;
+}
+@keyframes atv-slide-left {
+  from { transform: translateX(24px); opacity: 0; }
+}
+.note-in {
+  animation: atv-note-in 0.35s ease both;
+}
+@keyframes atv-note-in {
+  from { transform: translateY(8px); opacity: 0; }
+}
+.note-mark {
+  animation: atv-pop-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.6) both;
+  transition: transform 0.15s ease;
+}
+.note-mark:hover {
+  transform: translateX(-50%) scale(1.6);
+}
+
+.cinema-poster {
+  animation: atv-float 5s ease-in-out infinite;
+}
+@keyframes atv-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.cinema-glow {
+  animation: atv-glow 3.2s ease-in-out infinite;
+}
+@keyframes atv-glow {
+  0%, 100% { opacity: 0.35; transform: scale(0.92); }
+  50% { opacity: 0.7; transform: scale(1.02); }
+}
+.step-done {
+  animation: atv-pop-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.6);
+}
+
+.toggle-knob {
+  transition: left 0.28s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+.uploading {
+  animation: atv-up 1.1s ease-in-out infinite;
+}
+@keyframes atv-up {
+  0%, 100% { transform: translateY(1px); }
+  50% { transform: translateY(-2px); }
+}
+
+.reveal-up {
+  animation: atv-note-in 0.5s ease both;
+}
+
+html[data-fx="off"] :is(.cinema-poster, .cinema-glow, .uploading, .seek-chevrons > *) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.seek-ripple, .seek-chevrons > *, .icon-swap, .next-card, .notes-panel, .note-in, .note-mark, .cinema-poster, .cinema-glow, .step-done, .uploading, .reveal-up) {
+    animation: none;
+  }
+  .countdown-ring {
+    animation-timing-function: steps(10);
+  }
+}

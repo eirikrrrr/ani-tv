@@ -9,6 +9,7 @@ import { useCursorImages } from "./cursorStore";
 import { Picker, type PickTarget } from "./components/Picker";
 import { PlayerSession } from "./components/Player";
 import { DownloadsView } from "./components/Downloads";
+import { NotesView } from "./components/NotesView";
 import * as player from "./player";
 import { DEFAULT_DOWNLOADS, normalizeDownloads, type DownloadSettings } from "./player";
 import { useSeeding } from "./seeding";
@@ -16,13 +17,14 @@ import { SettingsView } from "./components/Settings";
 import * as discord from "./discord";
 import { DEFAULT_CATALOGS, DEFAULT_PREFS, type Catalog, type Prefs, type Ranked, type Source } from "./sources";
 import { DEFAULT_LOOK, toSaved, useStored, type DiscordSettings, type Look, type Progress, type Saved, type Theme } from "./store";
+import { t } from "./i18n";
 
 const CATEGORIES: { id: string; label: string; badge: string; q: ListQuery }[] = [
-  { id: "trending", label: "Tendencias", badge: "Tendencia ahora", q: { sort: ["TRENDING_DESC", "POPULARITY_DESC"] } },
-  { id: "season", label: "Temporada", badge: "Esta temporada", q: { ...currentSeason(), sort: ["POPULARITY_DESC"] } },
-  { id: "popular", label: "Populares", badge: "Lo más popular", q: { sort: ["POPULARITY_DESC"] } },
-  { id: "top", label: "Mejor valoradas", badge: "Mejor valorada", q: { sort: ["SCORE_DESC"] } },
-  { id: "movies", label: "Películas", badge: "Película destacada", q: { format: "MOVIE", sort: ["TRENDING_DESC", "POPULARITY_DESC"] } },
+  { id: "trending", label: t("Tendencias"), badge: t("Tendencia ahora"), q: { sort: ["TRENDING_DESC", "POPULARITY_DESC"] } },
+  { id: "season", label: t("Temporada"), badge: t("Esta temporada"), q: { ...currentSeason(), sort: ["POPULARITY_DESC"] } },
+  { id: "popular", label: t("Populares"), badge: t("Lo más popular"), q: { sort: ["POPULARITY_DESC"] } },
+  { id: "top", label: t("Mejor valoradas"), badge: t("Mejor valorada"), q: { sort: ["SCORE_DESC"] } },
+  { id: "movies", label: t("Películas"), badge: t("Película destacada"), q: { format: "MOVIE", sort: ["TRENDING_DESC", "POPULARITY_DESC"] } },
 ];
 
 type View = { kind: ViewKind; id?: number };
@@ -146,7 +148,7 @@ export default function App() {
     };
     if (!now) {
       discord
-        .setIdle({ text: "Explorando el catálogo", logoUrl: discord.LOGO_URL, startedAt: discord.OPENED_AT, appUrl: discord.APP_URL })
+        .setIdle({ text: t("Explorando el catálogo"), logoUrl: discord.LOGO_URL, startedAt: discord.OPENED_AT, appUrl: discord.APP_URL, buttonText: t("Descargar Anime TV") })
         .catch(fail);
       return;
     }
@@ -159,6 +161,10 @@ export default function App() {
         infoUrl: now.media.siteUrl,
         startedAt: now.startedAt,
         logoUrl: discord.LOGO_URL,
+        episodeText: now.media.episodes
+          ? t("Episodio {n} de {total}", { n: now.episode, total: now.media.episodes })
+          : t("Episodio {n}", { n: now.episode }),
+        buttonText: t("Ver la serie"),
       })
       .catch(fail);
   }, [now, dstatus, dsettings.enabled]);
@@ -172,9 +178,9 @@ export default function App() {
   };
 
   // every "watch" goes through the release picker for that episode
-  const choose = (m: Media | Saved, episode?: number) => {
+  const choose = (m: Media | Saved, episode?: number, start?: number | null) => {
     const s: Saved = "description" in m ? toSaved(m) : m;
-    setPick({ media: s, episode: episode ?? progressOf(m.id)?.episode ?? 1 });
+    setPick({ media: s, episode: episode ?? progressOf(m.id)?.episode ?? 1, start: start ?? null });
   };
   const notify = useCallback((text: string) => setToast(text), []);
   useEffect(() => {
@@ -189,7 +195,7 @@ export default function App() {
       setSession({ target: pick, release: r, key: Date.now() });
     } else {
       watch(pick.media, pick.episode);
-      notify("Episodio marcado como «viendo»");
+      notify(t("Episodio marcado como «viendo»"));
     }
     setPick(null);
   };
@@ -205,7 +211,7 @@ export default function App() {
   switch (view.kind) {
     case "home":
       content = loadError ? (
-        <Empty title="No se pudo cargar el catálogo" text={`${loadError}. Revisa tu conexión a internet.`} />
+        <Empty title={t("No se pudo cargar el catálogo")} text={t("{error}. Revisa tu conexión a internet.", { error: loadError })} />
       ) : (
         <>
           <Hero
@@ -217,11 +223,11 @@ export default function App() {
             onFavorite={toggleFavorite}
           />
           <Reveal>
-            <SectionTitle title="Te puede gustar" action="Ver todo" onAction={() => go({ kind: "explore" })} />
+            <SectionTitle title={t("Te puede gustar")} action={t("Ver todo")} onAction={() => go({ kind: "explore" })} />
             <WideRow items={rest.slice(0, 9)} onOpen={openDetail} onWatch={(m) => choose(m)} />
           </Reveal>
           <Reveal>
-            <SectionTitle title={`Más en ${cat.label.toLowerCase()}`} />
+            <SectionTitle title={t("Más en {category}", { category: cat.label.toLowerCase() })} />
             <PosterGrid items={rest.slice(9)} onOpen={openDetail} loading={items.length === 0} />
           </Reveal>
         </>
@@ -230,7 +236,7 @@ export default function App() {
     case "explore":
       content = (
         <div className="fade-in">
-          <h1 className="text-[26px] font-medium">{query.trim() ? `Resultados para «${query.trim()}»` : "Explorar"}</h1>
+          <h1 className="text-[26px] font-medium">{query.trim() ? t("Resultados para «{q}»", { q: query.trim() }) : t("Explorar")}</h1>
           <div className="no-scrollbar mt-4 mb-6 flex gap-2 overflow-x-auto">
             {[null, ...GENRES].map((g) => (
               <button
@@ -240,12 +246,12 @@ export default function App() {
                   genre === g ? "bg-accent text-white" : "bg-panel hover:bg-panel-2"
                 }`}
               >
-                {g ? genreLabel(g) : "Todos"}
+                {g ? genreLabel(g) : t("Todos")}
               </button>
             ))}
           </div>
           {results && results.length === 0 ? (
-            <Empty icon={<SearchX size={24} />} title="Sin resultados" text="Prueba con otro nombre (en inglés o en romaji) o quita el filtro de género." />
+            <Empty icon={<SearchX size={24} />} title={t("Sin resultados")} text={t("Prueba con otro nombre (en inglés o en romaji) o quita el filtro de género.")} />
           ) : (
             <PosterGrid items={results ?? []} onOpen={openDetail} loading={results === null} />
           )}
@@ -255,13 +261,29 @@ export default function App() {
     case "favorites":
       content = (
         <div className="fade-in">
-          <h1 className="mb-6 text-[26px] font-medium">Favoritos</h1>
+          <h1 className="mb-6 text-[26px] font-medium">{t("Favoritos")}</h1>
           {favorites.length === 0 ? (
-            <Empty icon={<Heart size={24} />} title="Aún no tienes favoritos" text="Pulsa el corazón en una serie para guardarla aquí." />
+            <Empty icon={<Heart size={24} />} title={t("Aún no tienes favoritos")} text={t("Pulsa el corazón en una serie para guardarla aquí.")} />
           ) : (
             <PosterGrid items={favorites} onOpen={openDetail} />
           )}
         </div>
+      );
+      break;
+    case "notes":
+      content = (
+        <NotesView
+          notify={notify}
+          onOpen={openDetail}
+          onPlay={(n, time) => {
+            const known = [...progress, ...favorites].find((x) => x.id === n.mediaId);
+            const media: Saved = known ?? {
+              id: n.mediaId, title: n.series, cover: n.cover ?? "", banner: null, episodes: null,
+              siteUrl: "", year: null, format: null,
+            };
+            choose(media, n.episode, time);
+          }}
+        />
       );
       break;
     case "downloads":

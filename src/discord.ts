@@ -2,6 +2,7 @@
 // In a plain browser (UI development without Tauri) every call is a no-op.
 
 import { invoke } from "@tauri-apps/api/core";
+import { t, tErr } from "./i18n";
 
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -13,6 +14,9 @@ export type Presence = {
   infoUrl?: string;
   startedAt?: number;
   logoUrl?: string;
+  /** "Episode 3 of 12" in the user's language */
+  episodeText?: string;
+  buttonText?: string;
 };
 
 export type DiscordStatus = "off" | "connecting" | "on" | "error";
@@ -27,12 +31,12 @@ export const APP_URL = "https://github.com/eirikrrrr/ani-tv/releases";
 /** When the app was opened: the idle status shows the elapsed time. */
 export const OPENED_AT = Date.now();
 
-export type Idle = { text: string; logoUrl?: string; startedAt?: number; appUrl?: string };
+export type Idle = { text: string; logoUrl?: string; startedAt?: number; appUrl?: string; buttonText?: string };
 
-const err = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+const err = (e: unknown) => tErr(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
 
 export async function connect(clientId: string): Promise<void> {
-  if (!inTauri) throw new Error("Discord solo funciona en la app de escritorio");
+  if (!inTauri) throw new Error(t("Discord solo funciona en la app de escritorio"));
   try {
     await invoke("discord_connect", { clientId });
   } catch (e) {

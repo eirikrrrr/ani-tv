@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { availableEpisodes, byId, formatLabel, genreLabel, type Media } from "../anilist";
 import type { DiscordStatus } from "../discord";
 import type { Saved } from "../store";
+import { t } from "../i18n";
 
 const meta = (m: Pick<Media, "year" | "format" | "episodes">) =>
   [m.year, formatLabel(m.format), m.episodes ? `${m.episodes} eps` : null].filter(Boolean).join(" · ");
@@ -97,17 +98,17 @@ export function Hero(props: {
             onClick={() => props.onWatch(m)}
             className="flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[16px] font-medium text-black hover:bg-white/90"
           >
-            <Play size={17} fill="currentColor" /> Ver
+            <Play size={17} fill="currentColor" /> {t("Ver")}
           </button>
           <button
             onClick={() => props.onOpen(m.id)}
             className="flex h-12 items-center gap-2 rounded-full bg-white/12 px-6 text-[16px] backdrop-blur-md hover:bg-white/20"
           >
-            <Info size={18} /> Detalles
+            <Info size={18} /> {t("Detalles")}
           </button>
           <button
             onClick={() => props.onFavorite(m)}
-            title={fav ? "Quitar de favoritos" : "Añadir a favoritos"}
+            title={fav ? t("Quitar de favoritos") : t("Añadir a favoritos")}
             className="grid size-12 place-items-center rounded-full bg-white/12 backdrop-blur-md hover:bg-white/20"
           >
             <Heart key={String(fav)} size={18} className={fav ? "heart-pop text-accent" : ""} fill={fav ? "currentColor" : "none"} />
@@ -121,14 +122,14 @@ export function Hero(props: {
           <button
             onClick={() => setI((i - 1 + n) % n)}
             className="grid size-11 place-items-center rounded-full bg-white/15 backdrop-blur-md hover:bg-white/25"
-            title="Anterior"
+            title={t("Anterior")}
           >
             <ChevronUp size={20} />
           </button>
           <button
             onClick={() => setI((i + 1) % n)}
             className="grid size-11 place-items-center rounded-full bg-white text-black hover:bg-white/90"
-            title="Siguiente"
+            title={t("Siguiente")}
           >
             <ChevronDown size={20} />
           </button>
@@ -214,7 +215,7 @@ export function WideRow(props: { items: Media[]; onOpen: (id: number) => void; o
                 e.stopPropagation();
                 props.onWatch(m);
               }}
-              title="Ver"
+              title={t("Ver")}
               className="grid size-10 shrink-0 place-items-center rounded-full bg-accent text-white transition-transform hover:scale-110"
             >
               <Play size={16} fill="currentColor" />
@@ -277,7 +278,7 @@ export function Details(props: {
     byId(props.id).then(setM, (e: Error) => setError(e.message));
   }, [props.id]);
 
-  if (error) return <Empty title="No se pudo cargar la serie" text={error} />;
+  if (error) return <Empty title={t("No se pudo cargar la serie")} text={error} />;
   if (!m) return <div className="h-[320px] animate-pulse rounded-[28px] bg-panel" />;
 
   const eps = availableEpisodes(m);
@@ -291,13 +292,13 @@ export function Details(props: {
           <img src={m.cover} alt="" className="w-[170px] shrink-0 self-start rounded-2xl shadow-2xl" />
           <div className="flex min-w-0 flex-col gap-3">
             <button onClick={props.onBack} className="flex w-fit items-center gap-1.5 text-[15px] text-white/70 hover:text-white">
-              <ArrowLeft size={17} /> Volver
+              <ArrowLeft size={17} /> {t("Volver")}
             </button>
             <h1 className="text-[30px] leading-tight font-bold">{m.title}</h1>
             {m.romaji !== m.title && <p className="-mt-2 text-white/55">{m.romaji}</p>}
             <p className="flex flex-wrap items-center gap-x-2 text-[15px] text-white/85">
               {meta(m)}
-              {m.nextEpisode && <span>· En emisión</span>}
+              {m.nextEpisode && <span>· {t("En emisión")}</span>}
               {m.score != null && (
                 <span className="flex items-center gap-1">
                   · <Star size={14} className="text-amber-400" fill="currentColor" /> {(m.score / 10).toFixed(1)}
@@ -320,7 +321,7 @@ export function Details(props: {
                 onClick={() => props.onWatch(m, next)}
                 className="flex h-12 items-center gap-2 rounded-full bg-white px-7 text-[16px] font-medium text-black hover:bg-white/90 disabled:opacity-50"
               >
-                <Play size={17} fill="currentColor" /> {props.watchedUpTo > 1 ? `Continuar · EP ${next}` : "Ver episodio 1"}
+                <Play size={17} fill="currentColor" /> {props.watchedUpTo > 1 ? t("Continuar · EP {n}", { n: next }) : t("Ver episodio 1")}
               </button>
               <button
                 onClick={() => props.onFavorite(m)}
@@ -332,7 +333,7 @@ export function Details(props: {
                   className={props.isFavorite ? "heart-pop text-accent" : ""}
                   fill={props.isFavorite ? "currentColor" : "none"}
                 />
-                {props.isFavorite ? "En favoritos" : "Favorito"}
+                {props.isFavorite ? t("En favoritos") : t("Favorito")}
               </button>
             </div>
           </div>
@@ -340,9 +341,9 @@ export function Details(props: {
       </section>
 
       <Reveal>
-      <SectionTitle title={`Episodios${eps ? ` · ${eps}` : ""}`} />
+      <SectionTitle title={`${t("Episodios")}${eps ? ` · ${eps}` : ""}`} />
       {eps === 0 ? (
-        <p className="text-muted">Todavía no hay episodios emitidos.</p>
+        <p className="text-muted">{t("Todavía no hay episodios emitidos.")}</p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3">
           {Array.from({ length: eps }, (_, k) => k + 1).map((ep, i) => {
@@ -392,13 +393,13 @@ export function NowWatching(props: {
               <i />
               <i />
             </span>
-            Ahora viendo
+            {t("Ahora viendo")}
           </span>
           <span className="block truncate text-[16px] font-medium">{m.title}</span>
           <span className="block truncate text-[13px] text-muted">
-            Episodio {episode}
-            {m.episodes ? ` de ${m.episodes}` : ""} ·{" "}
-            {shared ? "visible para tus amigos en Discord" : "Discord no conectado"}
+            {t("Episodio {n}", { n: episode })}
+            {m.episodes ? ` ${t("de {total}", { total: m.episodes })}` : ""} ·{" "}
+            {shared ? t("visible para tus amigos en Discord") : t("Discord no conectado")}
           </span>
         </span>
       </button>
@@ -406,18 +407,18 @@ export function NowWatching(props: {
         <button
           disabled={episode <= 1}
           onClick={() => props.onEpisode(episode - 1)}
-          title="Episodio anterior"
+          title={t("Episodio anterior")}
           className="grid size-10 place-items-center rounded-full hover:bg-panel-2 disabled:opacity-40"
         >
           <SkipBack size={18} />
         </button>
-        <button onClick={props.onStop} title="Dejar de ver" className="grid size-12 place-items-center rounded-full bg-accent text-white">
+        <button onClick={props.onStop} title={t("Dejar de ver")} className="grid size-12 place-items-center rounded-full bg-accent text-white">
           <Pause size={19} fill="currentColor" />
         </button>
         <button
           disabled={episode >= max}
           onClick={() => props.onEpisode(episode + 1)}
-          title="Episodio siguiente"
+          title={t("Episodio siguiente")}
           className="grid size-10 place-items-center rounded-full hover:bg-panel-2 disabled:opacity-40"
         >
           <SkipForward size={18} />

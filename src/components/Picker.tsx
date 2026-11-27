@@ -8,8 +8,10 @@ import {
   formatSize, langShort, search, type Prefs, type Ranked, type SearchResult, type Source,
 } from "../sources";
 import type { Saved } from "../store";
+import { t, tErr, tn } from "../i18n";
 
-export type PickTarget = { media: Saved; episode: number };
+/** What to play; `start` = second to start at (from a note). */
+export type PickTarget = { media: Saved; episode: number; start?: number | null };
 
 function Badge(props: { children: ReactNode; strong?: boolean; title?: string }) {
   return (
@@ -32,15 +34,15 @@ function Row(props: { r: Ranked; sourceName: string; onPlay: () => void; onCopy:
     <div className="flex items-center gap-4 rounded-2xl px-4 py-3 hover:bg-panel-2">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          {r.languageMatch === 0 && <Badge strong>Tu idioma</Badge>}
+          {r.languageMatch === 0 && <Badge strong>{t("Tu idioma")}</Badge>}
           {p.resolution && <Badge>{p.resolution === 2160 ? "4K" : `${p.resolution}p`}</Badge>}
           <Badge title="Audio">
             <Volume2 size={12} /> {p.audio.map(langShort).join("·")}
           </Badge>
-          <Badge title="Subtítulos">
+          <Badge title={t("Subtítulos")}>
             <Captions size={12} /> {subs}
           </Badge>
-          {p.batch && <Badge title="Pack de varios episodios">Pack {p.episode && p.episodeEnd ? `${p.episode}-${p.episodeEnd}` : ""}</Badge>}
+          {p.batch && <Badge title={t("Pack de varios episodios")}>Pack {p.episode && p.episodeEnd ? `${p.episode}-${p.episodeEnd}` : ""}</Badge>}
           {p.codec && <Badge>{p.codec}</Badge>}
         </div>
         <p className="mt-1.5 truncate text-[14px]" title={r.title}>
@@ -60,14 +62,14 @@ function Row(props: { r: Ranked; sourceName: string; onPlay: () => void; onCopy:
       </div>
       <button
         onClick={props.onCopy}
-        title="Copiar enlace magnet"
+        title={t("Copiar enlace magnet")}
         className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-panel hover:text-accent"
       >
         <Copy size={17} />
       </button>
       <button
         onClick={props.onPlay}
-        title="Ver este"
+        title={t("Ver este")}
         className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-white transition-transform hover:scale-105"
       >
         <Play size={17} fill="currentColor" />
@@ -113,36 +115,36 @@ export function Picker(props: {
     const link = r.magnet ?? r.torrentUrl ?? "";
     try {
       await navigator.clipboard.writeText(link);
-      props.notify("Enlace copiado");
+      props.notify(t("Enlace copiado"));
     } catch {
-      props.notify("No se pudo copiar el enlace");
+      props.notify(t("No se pudo copiar el enlace"));
     }
   };
 
   let body: ReactNode;
   if (!inTauri) {
-    body = <p className="p-6 text-muted">La búsqueda en fuentes solo funciona en la app de escritorio.</p>;
+    body = <p className="p-6 text-muted">{t("La búsqueda en fuentes solo funciona en la app de escritorio.")}</p>;
   } else if (enabled.length === 0) {
     body = (
       <div className="grid place-items-center gap-3 px-6 py-12 text-center">
         <div className="grid size-14 place-items-center rounded-full bg-accent-soft text-accent">
           <Rss size={24} />
         </div>
-        <h3 className="text-[18px] font-medium">Aún no tienes fuentes</h3>
+        <h3 className="text-[18px] font-medium">{t("Aún no tienes fuentes")}</h3>
         <p className="max-w-[420px] text-[14.5px] text-muted">
-          Añade un indexador Torznab (Prowlarr, Jackett) o un feed RSS en Ajustes para buscar este episodio.
+          {t("Añade un indexador Torznab (Prowlarr, Jackett) o un feed RSS en Ajustes para buscar este episodio.")}
         </p>
         <button onClick={props.onSettings} className="mt-1 h-11 rounded-full bg-accent px-6 font-medium text-white">
-          Ir a Fuentes
+          {t("Ir a Fuentes")}
         </button>
       </div>
     );
   } else if (error) {
-    body = <p className="p-6 text-amber-500">{error}</p>;
+    body = <p className="p-6 text-amber-500">{tErr(error)}</p>;
   } else if (!res) {
     body = (
       <div className="flex flex-col gap-2 p-3">
-        <p className="px-2 pb-1 text-[14px] text-muted">Buscando en {enabled.length} fuente{enabled.length > 1 ? "s" : ""}…</p>
+        <p className="px-2 pb-1 text-[14px] text-muted">{tn(enabled.length, "Buscando en {n} fuente…", "Buscando en {n} fuentes…")}</p>
         {[0, 1, 2, 3].map((k) => (
           <div key={k} className="h-[74px] animate-pulse rounded-2xl bg-panel-2" />
         ))}
@@ -155,14 +157,14 @@ export function Picker(props: {
           <p key={e.source} className="mx-2 mb-2 flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-[13.5px] text-amber-500">
             <AlertTriangle size={15} className="mt-0.5 shrink-0" />
             <span>
-              <b>{e.name}</b>: {e.error}
+              <b>{e.name}</b>: {tErr(e.error)}
             </span>
           </p>
         ))}
         {res.results.length === 0 ? (
           <p className="px-4 py-8 text-center text-muted">
-            Ninguna fuente tiene este episodio
-            {res.total ? ` (${res.total} resultados de la serie, ninguno del episodio ${episode})` : ""}.
+            {t("Ninguna fuente tiene este episodio")}
+            {res.total ? ` ${t("({total} resultados de la serie, ninguno del episodio {n})", { total: res.total, n: episode })}` : ""}.
           </p>
         ) : (
           res.results.map((r, i) => (
@@ -188,18 +190,18 @@ export function Picker(props: {
         <header className="flex items-center gap-4 border-b border-line p-4 pl-5">
           <img src={media.cover} alt="" className="h-14 w-10 rounded-lg object-cover" />
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium tracking-wide text-accent uppercase">Episodio {episode}</p>
+            <p className="text-[13px] font-medium tracking-wide text-accent uppercase">{t("Episodio {n}", { n: episode })}</p>
             <h2 className="truncate text-[18px] font-medium">{media.title}</h2>
           </div>
-          <button onClick={props.onClose} title="Cerrar" className="grid size-10 place-items-center rounded-full hover:bg-panel-2">
+          <button onClick={props.onClose} title={t("Cerrar")} className="grid size-10 place-items-center rounded-full hover:bg-panel-2">
             <X size={19} />
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
         <footer className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-[13px] text-muted">
-          <span>«Ver» descarga el episodio por partes y lo abre en el reproductor en cuanto hay suficiente.</span>
+          <span>{t("«Ver» descarga el episodio por partes y lo abre en el reproductor en cuanto hay suficiente.")}</span>
           <button onClick={() => props.onPlay(null)} className="shrink-0 hover:text-accent">
-            Marcar sin fuente
+            {t("Marcar sin fuente")}
           </button>
         </footer>
       </div>
