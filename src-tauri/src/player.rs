@@ -185,6 +185,9 @@ pub struct LaunchArgs {
     /// shown by the controls window (series, episode, cover, has next…)
     #[serde(default)]
     pub info: Value,
+    /// start at this second (a note's moment)
+    #[serde(default)]
+    pub start: Option<f64>,
 }
 
 #[derive(Clone, Serialize)]
@@ -250,6 +253,9 @@ pub async fn play_launch(app: AppHandle, player: State<'_, Player>, args: Launch
             .arg("--background-color=#000000");
     } else {
         cmd.arg("--force-window=immediate").arg("--keep-open=no");
+    }
+    if let Some(t) = args.start.filter(|t| t.is_finite() && *t > 0.0) {
+        cmd.arg(format!("--start={t:.1}"));
     }
     let alang = mpv_langs(&args.audio);
     if !alang.is_empty() {

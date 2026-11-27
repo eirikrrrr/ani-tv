@@ -31,6 +31,12 @@ pub struct Presence {
     /// The app logo (public HTTPS URL), shown small over the cover.
     #[serde(default)]
     pub logo_url: Option<String>,
+    /// The episode line and the button text in the user's language (the UI
+    /// translates them); None = Spanish defaults.
+    #[serde(default)]
+    pub episode_text: Option<String>,
+    #[serde(default)]
+    pub button_text: Option<String>,
 }
 
 /// Nothing playing: the profile shows the app logo and what the user is doing.
@@ -45,6 +51,9 @@ pub struct Idle {
     pub started_at: Option<i64>,
     /// Where friends can get the app, shown as a button.
     pub app_url: Option<String>,
+    /// That button's text in the user's language; None = Spanish.
+    #[serde(default)]
+    pub button_text: Option<String>,
 }
 
 /// Name shown next to the logo and on the small image.
@@ -81,6 +90,9 @@ fn field(s: &str) -> String {
 
 /// The "Episodio 3 de 12" line.
 pub fn episode_line(p: &Presence) -> Option<String> {
+    if let Some(t) = p.episode_text.as_deref().filter(|t| !t.trim().is_empty()) {
+        return Some(t.to_string());
+    }
     match (p.episode, p.total_episodes) {
         (Some(e), Some(t)) => Some(format!("Episodio {e} de {t}")),
         (Some(e), None) => Some(format!("Episodio {e}")),
@@ -151,7 +163,7 @@ impl Discord {
                 a = a.timestamps(Timestamps::new().start(ms));
             }
             if let Some(url) = p.info_url.as_deref() {
-                a = a.buttons(vec![Button::new("Ver la serie", url)]);
+                a = a.buttons(vec![Button::new(p.button_text.as_deref().unwrap_or("Ver la serie"), url)]);
             }
             c.set_activity(a)
         })
@@ -175,7 +187,7 @@ impl Discord {
                 a = a.timestamps(Timestamps::new().start(ms));
             }
             if let Some(url) = idle.app_url.as_deref() {
-                a = a.buttons(vec![Button::new("Descargar Anime TV", url)]);
+                a = a.buttons(vec![Button::new(idle.button_text.as_deref().unwrap_or("Descargar Anime TV"), url)]);
             }
             c.set_activity(a)
         })
@@ -220,6 +232,8 @@ mod tests {
             info_url: None,
             started_at: None,
             logo_url: None,
+            episode_text: None,
+            button_text: None,
         }
     }
 
