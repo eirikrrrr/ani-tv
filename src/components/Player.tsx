@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { inTauri } from "../discord";
 import * as player from "../player";
+import * as stats from "../stats";
 import type { DownloadSettings, EngineStatus, Opened, PlayerAction } from "../player";
 import { formatSize, type Prefs, type Ranked } from "../sources";
 import type { PickTarget } from "./Picker";
@@ -51,6 +52,8 @@ export function PlayerSession(props: {
   const title = `${media.title} · ${t("Episodio {n}", { n: episode })}`;
   const audio = props.prefs.languages.filter((l) => l.track === "audio").map((l) => l.lang);
   const subs = props.prefs.languages.filter((l) => l.track === "subs").map((l) => l.lang);
+
+  const statCtx = { mediaId: media.id, series: media.title, cover: media.cover ?? null, episode };
 
   const fail = (e: unknown) => {
     setError(tErr(e instanceof Error ? e.message : String(e)));
@@ -130,6 +133,7 @@ export function PlayerSession(props: {
         const s = await player.status(opened.id, opened.fileIdx);
         if (!alive) return;
         setSt(s);
+        stats.recordTransfer(opened.id, statCtx, s.uploaded, s.downloaded);
         if (s.error) fail(s.error);
         else if (!launched.current && phase === "buffering" && player.readyToPlay(s)) launch(opened.url);
         if (launched.current && inTauri) {
@@ -169,6 +173,26 @@ export function PlayerSession(props: {
     await finish();
     props.onRepick();
   };
+
+  // time watched: playback position moving forward in small steps (a seek
+  // is a jump, a pause is no change)
+  useEffect(() => {
+    if (phase !== "playing") return;
+    let lastPos: number | null = null;
+    const un = player.onMpv((e) => {
+      if (e.event !== "property-change" || e.name !== "time-pos" || typeof e.data !== "number") return;
+      if (lastPos != null) {
+        const d = e.data - lastPos;
+        if (d > 0 && d < 3) stats.recordWatch(statCtx, d);
+      }
+      lastPos = e.data;
+    });
+    return () => {
+      un.then((f) => f());
+      stats.flush();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   // mpv went away (closed its window, or crashed)
   useEffect(() => {

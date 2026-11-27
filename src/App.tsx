@@ -10,6 +10,7 @@ import { Picker, type PickTarget } from "./components/Picker";
 import { PlayerSession } from "./components/Player";
 import { DownloadsView } from "./components/Downloads";
 import { NotesView } from "./components/NotesView";
+import { StatsView } from "./components/StatsView";
 import * as player from "./player";
 import { DEFAULT_DOWNLOADS, normalizeDownloads, type DownloadSettings } from "./player";
 import { useSeeding } from "./seeding";
@@ -286,6 +287,9 @@ export default function App() {
         />
       );
       break;
+    case "stats":
+      content = <StatsView onOpen={openDetail} notify={notify} />;
+      break;
     case "downloads":
       content = <DownloadsView settings={downloads} onSettings={setDownloads} seeding={seeding} />;
       break;
@@ -416,6 +420,7 @@ export default function App() {
             seeding.release({
               id: o.id,
               fileIdx: o.fileIdx,
+              mediaId: session.target.media.id,
               series: session.target.media.title,
               episode: session.target.episode,
               cover: session.target.media.cover,

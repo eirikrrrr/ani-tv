@@ -6,10 +6,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as player from "./player";
 import type { DownloadSettings, EngineStatus } from "./player";
+import * as stats from "./stats";
 
 export type Seed = {
   id: number;
   fileIdx: number;
+  mediaId: number;
   series: string;
   episode: number;
   cover: string;
@@ -26,6 +28,7 @@ export function useSeeding(settings: DownloadSettings) {
 
   const stop = useCallback(async (id: number) => {
     setSeeds((l) => l.filter((s) => s.id !== id));
+    stats.forgetTorrent(id);
     await player.close(id, cfg.current.deleteAfter).catch(() => {});
   }, []);
   const stopAll = useCallback(async () => {
@@ -65,6 +68,7 @@ export function useSeeding(settings: DownloadSettings) {
       const c = cfg.current.seed;
       for (const s of ref.current) {
         const st = await player.status(s.id, s.fileIdx).catch(() => null);
+        if (st) stats.recordTransfer(s.id, { mediaId: s.mediaId, series: s.series, cover: s.cover, episode: s.episode }, st.uploaded, st.downloaded);
         if (!st) {
           setSeeds((l) => l.filter((x) => x.id !== s.id));
           continue;

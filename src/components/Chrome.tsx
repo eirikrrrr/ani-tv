@@ -2,13 +2,13 @@
 // "continue watching", and the floating dock used on narrow windows.
 
 import {
-  Compass, Download, Heart, Home, Moon, Play, Puzzle, Search, Settings, Sun, Tv, NotebookPen } from "lucide-react";
+  Compass, Download, Heart, Home, Moon, Play, Puzzle, Search, Settings, Sun, Tv, NotebookPen, BarChart3 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { DiscordStatus } from "../discord";
 import type { Progress, Theme } from "../store";
 import { t } from "../i18n";
 
-export type ViewKind = "home" | "explore" | "favorites" | "notes" | "downloads" | "addons" | "settings" | "detail";
+export type ViewKind = "home" | "explore" | "favorites" | "notes" | "stats" | "downloads" | "addons" | "settings" | "detail";
 
 export function Logo() {
   return (
@@ -144,6 +144,7 @@ const NAV: { kind: ViewKind; label: string; icon: ReactNode }[] = [
   { kind: "explore", label: t("Explorar"), icon: <Compass size={19} /> },
   { kind: "favorites", label: t("Favoritos"), icon: <Heart size={19} /> },
   { kind: "notes", label: t("Notas"), icon: <NotebookPen size={19} /> },
+  { kind: "stats", label: t("Estadísticas"), icon: <BarChart3 size={19} /> },
 ];
 const NAV2: { kind: ViewKind; label: string; icon: ReactNode }[] = [
   { kind: "addons", label: "Addons", icon: <Puzzle size={19} /> },
