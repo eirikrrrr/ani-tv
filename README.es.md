@@ -122,7 +122,7 @@ alimentan la tienda. Solo se incluye el catálogo oficial de Stremio; puedes añ
 - [x] Notas con minuto mientras ves
 - [x] Límites de descarga y subida, compartir (seeding) con tu consentimiento
 - [x] **alpha.9**: panel de estadísticas local (compartido, descargado, visto)
-- [ ] **alpha.10**: listas y cola de reproducción
+- [x] **alpha.10**: listas y cola de reproducción
 - [ ] **alpha.11**: continuar donde lo dejaste, siguiente episodio automático
 - [ ] **alpha.12**: cola de descargas, ver sin conexión
 - [ ] **alpha.13**: enviar a la smart TV (DLNA)

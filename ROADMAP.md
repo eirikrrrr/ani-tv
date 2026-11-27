@@ -1,6 +1,6 @@
 # Hoja de ruta de Anime TV
 
-Estado al 27 de noviembre de 2026 · última versión: **0.1.0-alpha.9**
+Estado al 27 de noviembre de 2026 · última versión: **0.1.0-alpha.10**
 
 Este documento dice qué viene después y en qué orden, y cómo se describe una feature nueva
 antes de construirla. La lista corta está en el [README](README.es.md) (sección *Hoja de ruta*).
@@ -24,6 +24,7 @@ se decida pasar a beta. Cada versión publicada trae sus notas en
 | alpha.7 | Límites de descarga y subida en vivo; compartir después de ver, con consentimiento; conexiones entrantes |
 | alpha.8 | Interfaz en inglés y español, notas con minuto, chip "Descargado", animaciones del reproductor |
 | alpha.9 | **Estadísticas** locales: compartido, descargado, tiempo visto, gráficos, series destacadas, rachas (F1) |
+| alpha.10 | **Listas y cola**: biblioteca, página de lista, aleatorio, reordenar, cola que sigue el reproductor (F3-A) |
 
 ---
 
@@ -36,7 +37,7 @@ Las fichas completas están en [Features nuevas](#-features-nuevas).
 | Versión | Contenido | Tamaño |
 |---|---|---|
 | ~~alpha.9~~ | ~~**Métricas locales** (F1)~~ ✅ | M |
-| alpha.10 | **Listas y cola de reproducción** (F3, fase A) | M |
+| ~~alpha.10~~ | ~~**Listas y cola de reproducción** (F3, fase A)~~ ✅ | M |
 | alpha.11 | **Continuar donde lo dejaste** + siguiente episodio automático | M |
 | alpha.12 | **Cola de descargas** / ver sin conexión (F3, fase B) + caché del DHT | L |
 | alpha.13 | **Enviar a la TV por DLNA** (F4, fase A) + servidor en la LAN | L |
