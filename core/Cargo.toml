@@ -17,7 +17,7 @@ futures = "0.3"
 # torrent streaming (torrent.rs): rustls, no OpenSSL
 librqbit = { version = "9.1", default-features = false, features = ["rust-tls"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
-tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros", "io-util", "fs"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros", "io-util", "fs", "time"] }
 tokio-util = { version = "0.7", features = ["io"] }
 anyhow = "1"
 getrandom = "0.3"

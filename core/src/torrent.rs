@@ -30,6 +30,87 @@ use crate::release;
 
 const VIDEO_EXT: &[&str] = &["mkv", "mp4", "avi", "webm", "m4v", "mov", "ts", "wmv", "flv"];
 
+/// Open trackers added to every torrent. Feeds often give only an info hash
+/// (a magnet without trackers), which leaves DHT as the only way to find
+/// peers: slow from a cold start, and sometimes never.
+const OPEN_TRACKERS: &[&str] = &[
+    "udp://tracker.opentrackr.org:1337/announce",
+    "udp://open.stealth.si:80/announce",
+    "udp://tracker.torrent.eu.org:451/announce",
+    "udp://exodus.desync.com:6969/announce",
+    "udp://open.demonii.com:1337/announce",
+    "udp://tracker.openbittorrent.com:6969/announce",
+];
+
+/// How long to look for peers / metadata before giving up on a source.
+const OPEN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(90);
+
+/// .torrent files bigger than this are not torrent files.
+const MAX_TORRENT_FILE: usize = 8 * 1024 * 1024;
+
+/// What an http(s) link from a feed points at.
+#[derive(Debug)]
+pub enum Link {
+    Torrent(Vec<u8>),
+    Video { len: Option<u64> },
+    /// an HTML page or anything else that cannot be played
+    Other(String),
+}
+
+/// Looks at an http(s) link without downloading more than a torrent file:
+/// the content type and the first bytes tell a .torrent from a video or a
+/// web page.
+pub async fn probe(url: &str) -> anyhow::Result<Link> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .read_timeout(std::time::Duration::from_secs(30))
+        .user_agent(concat!("AnimeTV/", env!("CARGO_PKG_VERSION")))
+        .build()?;
+    let mut r = client.get(url).send().await.map_err(|e| anyhow::anyhow!("no se pudo descargar el enlace: {e}"))?;
+    if !r.status().is_success() {
+        anyhow::bail!("el enlace respondió {}", r.status());
+    }
+    let ty = r
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let len = r.content_length();
+    if ty.starts_with("video/") || ty.contains("matroska") || ty.contains("mpegurl") {
+        return Ok(Link::Video { len });
+    }
+    if ty.starts_with("text/html") || ty.starts_with("application/xhtml") {
+        return Ok(Link::Other("el enlace es una página web, no un torrent ni un vídeo".into()));
+    }
+    if len.is_some_and(|l| l as usize > MAX_TORRENT_FILE) {
+        // big and not declared as video: let the player try it
+        return Ok(if crate::sources::is_video_url(url) || ty == "application/octet-stream" {
+            Link::Video { len }
+        } else {
+            Link::Other(format!("el enlace no es un torrent ({ty})"))
+        });
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = r.chunk().await? {
+        body.extend_from_slice(&chunk);
+        if body.len() > MAX_TORRENT_FILE {
+            return Ok(if crate::sources::is_video_url(url) { Link::Video { len } } else {
+                Link::Other("el enlace no es un torrent".into())
+            });
+        }
+    }
+    // bencoded dictionary: "d8:announce…" / "d4:info…"
+    if body.first() == Some(&b'd') && body.windows(4).take(4096).any(|w| w == b"info" || w == b"anno") {
+        return Ok(Link::Torrent(body));
+    }
+    let head = String::from_utf8_lossy(&body[..body.len().min(512)]).to_ascii_lowercase();
+    if head.contains("<html") || head.contains("<!doctype") {
+        return Ok(Link::Other("el enlace es una página web, no un torrent ni un vídeo".into()));
+    }
+    Ok(Link::Other("el enlace no es un torrent ni un vídeo".into()))
+}
+
 fn is_video(name: &str) -> bool {
     name.rsplit('.').next().is_some_and(|e| VIDEO_EXT.contains(&e.to_ascii_lowercase().as_str()))
 }
@@ -74,6 +155,9 @@ pub struct Opened {
     pub file_len: u64,
     /// local URL the player opens
     pub url: String,
+    /// the link was a video, not a torrent: `url` is that link and there is
+    /// nothing to download (id/file_idx mean nothing)
+    pub direct: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -118,6 +202,7 @@ impl Engine {
                 upload_bps: upload_kib.and_then(|k| NonZeroU32::new(k.saturating_mul(1024))),
                 download_bps: None,
             },
+            trackers: OPEN_TRACKERS.iter().filter_map(|t| url::Url::parse(t).ok()).collect(),
             ..Default::default()
         };
         let session = Session::new_with_opts(dir, opts).await?;
@@ -132,21 +217,69 @@ impl Engine {
         Ok(Engine { session, addr, token })
     }
 
-    /// Adds a torrent (magnet or .torrent URL), keeps only the file to play
+    /// Tries each source in turn (a .torrent link, a magnet…) and returns
+    /// the first that opens. A link that turns out to be a video is
+    /// returned as `direct`.
+    pub async fn open_any(&self, sources: &[String], file_idx: Option<usize>, episode: Option<u32>) -> anyhow::Result<Opened> {
+        let mut errors = Vec::new();
+        for src in sources.iter().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            match self.open(src, file_idx, episode).await {
+                Ok(o) => return Ok(o),
+                Err(e) => errors.push(e.to_string()),
+            }
+        }
+        match errors.len() {
+            0 => anyhow::bail!("este resultado no tiene enlace descargable"),
+            1 => anyhow::bail!("{}", errors[0]),
+            _ => anyhow::bail!("{}", errors.join(" · ")),
+        }
+    }
+
+    /// Adds a torrent (magnet or http link), keeps only the file to play
     /// and returns its local streaming URL.
     pub async fn open(&self, source: &str, file_idx: Option<usize>, episode: Option<u32>) -> anyhow::Result<Opened> {
-        let resp = self
-            .session
-            .add_torrent(
-                AddTorrent::from_url(source),
-                Some(AddTorrentOptions { paused: true, overwrite: true, ..Default::default() }),
-            )
-            .await?;
-        let (id, handle) = match resp {
-            AddTorrentResponse::Added(id, h) | AddTorrentResponse::AlreadyManaged(id, h) => (id, h),
-            AddTorrentResponse::ListOnly(_) => anyhow::bail!("respuesta inesperada del motor torrent"),
+        let add = if source.starts_with("http://") || source.starts_with("https://") {
+            match probe(source).await? {
+                Link::Torrent(bytes) => AddTorrent::from_bytes(bytes),
+                Link::Video { len } => {
+                    let name = source.split(['?', '#']).next().unwrap_or(source);
+                    let name = name.rsplit('/').next().unwrap_or("video").to_string();
+                    return Ok(Opened {
+                        id: 0,
+                        file_idx: 0,
+                        file_name: name,
+                        file_len: len.unwrap_or(0),
+                        url: source.to_string(),
+                        direct: true,
+                    });
+                }
+                Link::Other(why) => anyhow::bail!("{why}"),
+            }
+        } else if source.starts_with("magnet:") {
+            AddTorrent::from_url(source)
+        } else {
+            anyhow::bail!("enlace no soportado");
         };
-        handle.wait_until_initialized().await?;
+        let opts = AddTorrentOptions { paused: true, overwrite: true, ..Default::default() };
+        // a magnet resolves its metadata inside add_torrent: both steps are
+        // bounded so a torrent nobody seeds fails instead of waiting forever
+        let added = tokio::time::timeout(OPEN_TIMEOUT, async {
+            let resp = self.session.add_torrent(add, Some(opts)).await?;
+            let (id, handle) = match resp {
+                AddTorrentResponse::Added(id, h) | AddTorrentResponse::AlreadyManaged(id, h) => (id, h),
+                AddTorrentResponse::ListOnly(_) => anyhow::bail!("respuesta inesperada del motor torrent"),
+            };
+            handle.wait_until_initialized().await?;
+            Ok((id, handle))
+        })
+        .await;
+        let (id, handle) = match added {
+            Ok(r) => r?,
+            Err(_) => anyhow::bail!(
+                "nadie comparte este torrent ahora mismo (sin peers tras {} s); prueba otro resultado",
+                OPEN_TIMEOUT.as_secs()
+            ),
+        };
         let files: Vec<(String, u64)> = handle.with_metadata(|m| {
             m.file_infos.iter().map(|f| (f.relative_filename.to_string_lossy().into_owned(), f.len)).collect()
         })?;
@@ -164,6 +297,7 @@ impl Engine {
             file_name: leaf,
             file_len: len,
             url: format!("http://{}/s/{}/{id}/{idx}/{enc}", self.addr, self.token),
+            direct: false,
         })
     }
 
@@ -298,6 +432,40 @@ mod tests {
 
         assert_eq!(choose_file(&f(&[("x.iso", 5), ("y.bin", 9)]), None, None), Some(1));
         assert_eq!(choose_file(&[], None, None), None);
+    }
+
+    async fn serve(ty: &'static str, body: &'static [u8]) -> String {
+        use tokio::io::AsyncWriteExt;
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = l.local_addr().unwrap();
+        tokio::spawn(async move {
+            while let Ok((mut s, _)) = l.accept().await {
+                let mut buf = [0u8; 4096];
+                let _ = s.read(&mut buf).await;
+                let head = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: {ty}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = s.write_all(head.as_bytes()).await;
+                let _ = s.write_all(body).await;
+            }
+        });
+        format!("http://{addr}/x")
+    }
+
+    #[tokio::test]
+    async fn probes_links() {
+        let t = serve("application/x-bittorrent", b"d8:announce3:urle4:infod4:name1:aee").await;
+        assert!(matches!(probe(&t).await.unwrap(), Link::Torrent(_)));
+        // a .torrent served as octet-stream is still a torrent
+        let t = serve("application/octet-stream", b"d4:infod4:name1:aee").await;
+        assert!(matches!(probe(&t).await.unwrap(), Link::Torrent(_)));
+        let v = serve("video/mp4", b"....ftypisom").await;
+        assert!(matches!(probe(&v).await.unwrap(), Link::Video { len: Some(12) }));
+        let h = serve("text/html; charset=utf-8", b"<!doctype html><html></html>").await;
+        assert!(matches!(probe(&h).await.unwrap(), Link::Other(m) if m.contains("página web")));
+        let h = serve("text/plain", b"<!DOCTYPE html><html>").await;
+        assert!(matches!(probe(&h).await.unwrap(), Link::Other(_)));
     }
 
     #[test]

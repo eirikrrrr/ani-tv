@@ -220,6 +220,13 @@ fn is_http(s: &str) -> bool {
     s.starts_with("http://") || s.starts_with("https://")
 }
 
+/// A link whose path ends in a video extension (query string ignored).
+pub fn is_video_url(u: &str) -> bool {
+    let path = u.split(['?', '#']).next().unwrap_or(u);
+    let ext = path.rsplit('/').next().and_then(|f| f.rsplit_once('.')).map(|(_, e)| e.to_ascii_lowercase());
+    matches!(ext.as_deref(), Some("mkv" | "mp4" | "webm" | "m4v" | "mov" | "avi" | "ts" | "m3u8"))
+}
+
 /// Parses an RSS/Torznab document into releases. Unknown elements are ignored;
 /// items without a title or anything downloadable are skipped.
 pub fn parse_feed(xml: &str, source_id: &str) -> Result<Vec<Release>, Error> {
@@ -267,11 +274,16 @@ pub fn parse_feed(xml: &str, source_id: &str) -> Result<Vec<Release>, Error> {
             }
         }
 
+        // a feed may carry the video itself (podcast-style enclosure)
+        let mut direct = None;
         let enclosure = item.children().find(|c| c.has_tag_name("enclosure"));
         if let Some(e) = enclosure {
             if let Some(u) = e.attribute("url") {
+                let ty = e.attribute("type").unwrap_or("").to_ascii_lowercase();
                 if u.starts_with("magnet:") {
                     magnet.get_or_insert_with(|| u.to_string());
+                } else if is_http(u) && (ty.starts_with("video/") || is_video_url(u)) {
+                    direct = Some(u.to_string());
                 } else if is_http(u) {
                     torrent_url = Some(u.to_string());
                 }
@@ -290,6 +302,9 @@ pub fn parse_feed(xml: &str, source_id: &str) -> Result<Vec<Release>, Error> {
         if torrent_url.is_none() {
             torrent_url = link.as_deref().filter(|l| is_http(l) && l.contains(".torrent")).map(str::to_string);
         }
+        if direct.is_none() {
+            direct = link.as_deref().filter(|l| is_http(l) && is_video_url(l)).map(str::to_string);
+        }
         if info_hash.is_none() {
             info_hash = magnet.as_deref().and_then(hash_from_magnet);
         }
@@ -298,8 +313,9 @@ pub fn parse_feed(xml: &str, source_id: &str) -> Result<Vec<Release>, Error> {
                 magnet = Some(magnet_for(h, &title));
             }
         }
-        if magnet.is_none() && torrent_url.is_none() {
-            // fall back to an http link only if it is all there is
+        if magnet.is_none() && torrent_url.is_none() && direct.is_none() {
+            // fall back to an http link only if it is all there is (what it
+            // points at is checked when it is played: torrent::probe)
             torrent_url = link.clone().filter(|l| is_http(l));
             if torrent_url.is_none() {
                 continue;
@@ -322,7 +338,7 @@ pub fn parse_feed(xml: &str, source_id: &str) -> Result<Vec<Release>, Error> {
             published: text("pubDate"),
             info_url,
             file_idx: None,
-            url: None,
+            url: direct,
             exact: false,
         });
     }
@@ -485,6 +501,23 @@ mod tests {
         assert_eq!(r.size, Some(1503238553));
         assert!(r.magnet.is_some(), "magnet built from the info hash");
         assert_eq!(r.info_url.as_deref(), Some("https://example.org/view/2"));
+    }
+
+    #[test]
+    fn video_enclosures_play_directly() {
+        let xml = r#"<rss version="2.0"><channel>
+<item><title>Show - 03</title><enclosure url="https://cdn.example.org/ep3" type="video/mp4" length="9"/></item>
+<item><title>Show - 04</title><link>https://cdn.example.org/show-04.mkv?sig=1</link></item>
+<item><title>Show - 05</title><link>https://example.org/watch/5</link></item>
+</channel></rss>"#;
+        let rs = parse_feed(xml, "r").unwrap();
+        assert_eq!(rs[0].url.as_deref(), Some("https://cdn.example.org/ep3"));
+        assert_eq!(rs[0].torrent_url, None);
+        assert_eq!(rs[1].url.as_deref(), Some("https://cdn.example.org/show-04.mkv?sig=1"));
+        assert_eq!(rs[2].url, None, "a web page is not a video");
+        assert_eq!(rs[2].torrent_url.as_deref(), Some("https://example.org/watch/5"), "checked when played");
+        assert!(is_video_url("https://x/a.MKV"));
+        assert!(!is_video_url("https://x/a.torrent"));
     }
 
     #[test]
