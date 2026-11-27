@@ -121,7 +121,7 @@ alimentan la tienda. Solo se incluye el catálogo oficial de Stremio; puedes añ
 - [x] Interfaz en inglés y español
 - [x] Notas con minuto mientras ves
 - [x] Límites de descarga y subida, compartir (seeding) con tu consentimiento
-- [ ] **alpha.9**: panel de estadísticas local (compartido, descargado, visto)
+- [x] **alpha.9**: panel de estadísticas local (compartido, descargado, visto)
 - [ ] **alpha.10**: listas y cola de reproducción
 - [ ] **alpha.11**: continuar donde lo dejaste, siguiente episodio automático
 - [ ] **alpha.12**: cola de descargas, ver sin conexión

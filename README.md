@@ -123,7 +123,7 @@ store. Only the official Stremio catalogue is included; you can add others by UR
 - [x] English & Spanish interface
 - [x] Timestamped notes while watching
 - [x] Download/upload limits, opt-in sharing (seeding) with consent
-- [ ] **alpha.9** — local stats dashboard (shared / downloaded / watched)
+- [x] **alpha.9** — local stats dashboard (shared / downloaded / watched)
 - [ ] **alpha.10** — playlists and a play queue
 - [ ] **alpha.11** — resume where you left off, automatic next episode
 - [ ] **alpha.12** — download queue, offline viewing
