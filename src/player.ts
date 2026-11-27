@@ -4,7 +4,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { inTauri } from "./discord";
 
-export type Opened = { id: number; fileIdx: number; fileName: string; fileLen: number; url: string };
+export type Opened = {
+  id: number;
+  fileIdx: number;
+  fileName: string;
+  fileLen: number;
+  url: string;
+  /** the link was a video, not a torrent: nothing to download */
+  direct: boolean;
+};
 export type EngineStatus = {
   state: string;
   fileDownloaded: number;
@@ -37,15 +45,26 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
   }
 }
 
-export const open = (source: string, fileIdx: number | null, episode: number | null, s: DownloadSettings) =>
-  call<Opened>("play_open", { source, fileIdx, episode, settings: { downloadDir: s.dir || null, uploadKib: s.uploadKib } });
+/** Tries each source in order (.torrent link first, then the magnet). */
+export const open = (sources: string[], fileIdx: number | null, episode: number | null, s: DownloadSettings) =>
+  call<Opened>("play_open", { sources, fileIdx, episode, settings: { downloadDir: s.dir || null, uploadKib: s.uploadKib } });
 
 export const status = (id: number, fileIdx: number) => call<EngineStatus>("play_status", { id, fileIdx });
 
 export const close = (id: number, deleteFiles: boolean) => call<void>("play_close", { id, deleteFiles });
 
-export const launch = (url: string, title: string, audio: string[], subs: string[]) =>
-  call<void>("play_launch", { args: { url, title, audio, subs } });
+/** What the embedded player's controls show. */
+export type PlayerInfo = {
+  series: string;
+  episode: number;
+  release: string;
+  cover: string | null;
+  banner: string | null;
+  hasNext: boolean;
+};
+
+export const launch = (url: string, title: string, audio: string[], subs: string[], info: PlayerInfo) =>
+  call<{ embedded: boolean }>("play_launch", { args: { url, title, audio, subs, info } });
 
 export const stop = () => call<void>("play_stop");
 
@@ -53,6 +72,27 @@ export function onExited(cb: () => void): Promise<UnlistenFn> {
   if (!inTauri) return Promise.resolve(() => {});
   return listen("player-exited", () => cb());
 }
+
+// ---- embedded player (controls window ⇄ mpv IPC) ---------------------------
+
+/** Label of the controls window (src-tauri/src/player.rs). */
+export const OVERLAY = "player-ui";
+
+export const info = () => call<PlayerInfo | null>("player_info");
+export const cmd = (...command: (string | number | boolean)[]) => call<void>("player_cmd", { cmd: command }).catch(() => {});
+export const fullscreen = (on?: boolean) => call<boolean>("player_fullscreen", { on: on ?? null });
+
+/** An mpv IPC event: property changes carry name + data. */
+export type MpvEvent = { event: string; name?: string; data?: unknown };
+export function onMpv(cb: (e: MpvEvent) => void): Promise<UnlistenFn> {
+  if (!inTauri) return Promise.resolve(() => {});
+  return listen<MpvEvent>("mpv", (e) => cb(e.payload));
+}
+
+/** Torrent stats the main window forwards to the controls. */
+export type Stats = { downBps: number; peers: number; progress: number } | null;
+/** What the controls ask the main window to do. */
+export type PlayerAction = { kind: "close" | "next" };
 
 /** Enough buffered to start: 3% of the file or 12 MB, whichever is smaller. */
 export const readyToPlay = (s: EngineStatus) =>

@@ -378,6 +378,7 @@ export default function App() {
               ? () => choose(session.target.media, session.target.episode + 1)
               : null
           }
+          onRepick={() => choose(session.target.media, session.target.episode)}
           onEnd={() => {
             setSession(null);
             setNow(null);
