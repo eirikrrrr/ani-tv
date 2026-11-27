@@ -120,9 +120,19 @@ alimentan la tienda. Solo se incluye el catálogo oficial de Stremio; puedes añ
 - [x] Reproductor dentro de la ventana con controles propios y cuenta atrás al siguiente episodio
 - [x] Interfaz en inglés y español
 - [x] Notas con minuto mientras ves
-- [ ] Recordar posición
+- [x] Límites de descarga y subida, compartir (seeding) con tu consentimiento
+- [ ] **alpha.9**: panel de estadísticas local (compartido, descargado, visto)
+- [ ] **alpha.10**: listas y cola de reproducción
+- [ ] **alpha.11**: continuar donde lo dejaste, siguiente episodio automático
+- [ ] **alpha.12**: cola de descargas, ver sin conexión
+- [ ] **alpha.13**: enviar a la smart TV (DLNA)
+- [ ] **alpha.14**: rooms para ver con amigos en la red local
+- [ ] Chromecast e invitados por navegador en las rooms (ffmpeg) · rooms por internet
 - [ ] Sincronizar progreso con AniList / MAL, avisos de episodios nuevos
 - [ ] Instaladores firmados y actualización automática · builds para Linux y macOS
+
+El plan detallado (objetivos, cuándo está listo cada cosa, decisiones pendientes y una
+plantilla para features nuevas) está en [ROADMAP.md](ROADMAP.md).
 
 ## 🛠️ Desarrollo
 

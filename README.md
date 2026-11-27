@@ -122,9 +122,19 @@ store. Only the official Stremio catalogue is included; you can add others by UR
 - [x] Player embedded in the app window with its own controls, next-episode countdown
 - [x] English & Spanish interface
 - [x] Timestamped notes while watching
-- [ ] Resume position
+- [x] Download/upload limits, opt-in sharing (seeding) with consent
+- [ ] **alpha.9** — local stats dashboard (shared / downloaded / watched)
+- [ ] **alpha.10** — playlists and a play queue
+- [ ] **alpha.11** — resume where you left off, automatic next episode
+- [ ] **alpha.12** — download queue, offline viewing
+- [ ] **alpha.13** — cast to smart TVs (DLNA)
+- [ ] **alpha.14** — watch-together rooms on the local network
+- [ ] Chromecast and browser guests in rooms (ffmpeg) · rooms over the internet
 - [ ] AniList / MAL progress sync, new-episode notifications
 - [ ] Code-signed installers and auto-update · Linux & macOS builds
+
+The detailed plan (goals, done-when checks, open decisions and a template for new
+features) lives in [ROADMAP.md](ROADMAP.md) (Spanish).
 
 ## 🛠️ Development
 
