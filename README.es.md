@@ -118,6 +118,8 @@ alimentan la tienda. Solo se incluye el catálogo oficial de Stremio; puedes añ
 - [x] Addons compatibles con Stremio con tienda integrada
 - [x] Streaming por torrent + mpv incluido
 - [x] Reproductor dentro de la ventana con controles propios y cuenta atrás al siguiente episodio
+- [x] Interfaz en inglés y español
+- [x] Notas con minuto mientras ves
 - [ ] Recordar posición
 - [ ] Sincronizar progreso con AniList / MAL, avisos de episodios nuevos
 - [ ] Instaladores firmados y actualización automática · builds para Linux y macOS

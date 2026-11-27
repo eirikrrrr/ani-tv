@@ -120,6 +120,8 @@ store. Only the official Stremio catalogue is included; you can add others by UR
 - [x] Stremio-compatible addons with an in-app store
 - [x] Torrent streaming + bundled mpv
 - [x] Player embedded in the app window with its own controls, next-episode countdown
+- [x] English & Spanish interface
+- [x] Timestamped notes while watching
 - [ ] Resume position
 - [ ] AniList / MAL progress sync, new-episode notifications
 - [ ] Code-signed installers and auto-update · Linux & macOS builds
