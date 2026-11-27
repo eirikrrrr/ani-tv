@@ -35,7 +35,7 @@
 | | |
 |:--|:--|
 | 🎌 **Primero tus idiomas** — la app lee en el nombre de cada release el idioma del audio y de los subtítulos (español, español latino, inglés, raws en japonés, portugués, francés…) y ordena los resultados según *tu* lista, luego por calidad y seeders. | <img src="docs/assets/picker.png" alt="Selector de releases ordenado por idioma" width="100%"> |
-| ⚡ **Empieza en segundos** — el episodio se descarga en orden de reproducción y se abre en **mpv** (incluido) en cuanto hay búfer. Salta a cualquier punto: esas partes se descargan primero. | <img src="docs/assets/player.png" alt="Cargando antes de reproducir" width="100%"> |
+| ⚡ **Empieza en segundos** — el episodio se descarga en orden de reproducción y se reproduce con **mpv** (incluido) dentro de la propia ventana en cuanto hay búfer. Salta a cualquier punto: esas partes se descargan primero. | <img src="docs/assets/player.png" alt="Cargando antes de reproducir" width="100%"> |
 | 🧩 **Addons compatibles con Stremio** — tienda dentro de la app, instalación por URL o enlace `stremio://` y modal para instalar con un clic. Los addons se consultan por id de Kitsu / IMDb / MAL automáticamente. | <img src="docs/assets/addon-modal.png" alt="Modal de instalación de un addon" width="100%"> |
 | 🎮 **Discord Rich Presence** — el logo de la app mientras navegas; la portada, el episodio y el tiempo mientras ves. Funciona sin configurar nada y sin iniciar sesión. | <img src="docs/assets/details-light.png" alt="Ficha de una serie, tema claro" width="100%"> |
 | 🦊 **Cursor animado y movimiento** — personajes chibi (o tu propio GIF) como puntero, pétalos de sakura y transiciones suaves. Tema oscuro y claro. | <img src="docs/assets/settings.png" alt="Ajustes del cursor animado" width="100%"> |
@@ -117,7 +117,8 @@ alimentan la tienda. Solo se incluye el catálogo oficial de Stremio; puedes añ
 - [x] Fuentes Torznab / RSS y ranking por idioma
 - [x] Addons compatibles con Stremio con tienda integrada
 - [x] Streaming por torrent + mpv incluido
-- [ ] Reproductor dentro de la ventana, recordar posición, siguiente episodio automático
+- [x] Reproductor dentro de la ventana con controles propios y cuenta atrás al siguiente episodio
+- [ ] Recordar posición
 - [ ] Sincronizar progreso con AniList / MAL, avisos de episodios nuevos
 - [ ] Instaladores firmados y actualización automática · builds para Linux y macOS
 

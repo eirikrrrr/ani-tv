@@ -36,7 +36,7 @@
 | | |
 |:--|:--|
 | 🎌 **Your languages first** — release names are parsed for audio and subtitle languages (Spanish, Latin-American Spanish, English, Japanese raws, Portuguese, French…). Results are ranked by *your* order, then quality and seeders. | <img src="docs/assets/picker.png" alt="Release picker ranked by language" width="100%"> |
-| ⚡ **Streams in seconds** — the episode downloads in playback order and opens in the bundled **mpv** as soon as the start is buffered. Seek anywhere: those pieces come first. | <img src="docs/assets/player.png" alt="Buffering before playback" width="100%"> |
+| ⚡ **Streams in seconds** — the episode downloads in playback order and plays in the bundled **mpv**, right inside the app window, as soon as the start is buffered. Seek anywhere: those pieces come first. | <img src="docs/assets/player.png" alt="Buffering before playback" width="100%"> |
 | 🧩 **Stremio-compatible addons** — an in-app store, install by URL or `stremio://` link, one-click install dialog. Addons are queried by Kitsu / IMDb / MAL id automatically. | <img src="docs/assets/addon-modal.png" alt="Addon install dialog" width="100%"> |
 | 🎮 **Discord Rich Presence** — app logo while browsing; series cover, episode and elapsed time while watching. Works out of the box, no login. | <img src="docs/assets/details-light.png" alt="Series details, light theme" width="100%"> |
 | 🦊 **Animated cursor & motion** — chibi characters (or your own GIF) as the mouse pointer, sakura petals, smooth transitions. Dark and light themes. | <img src="docs/assets/settings.png" alt="Animated cursor settings" width="100%"> |
@@ -119,7 +119,8 @@ store. Only the official Stremio catalogue is included; you can add others by UR
 - [x] Torznab / RSS sources, language-aware ranking
 - [x] Stremio-compatible addons with an in-app store
 - [x] Torrent streaming + bundled mpv
-- [ ] Player embedded in the app window, resume position, auto next episode
+- [x] Player embedded in the app window with its own controls, next-episode countdown
+- [ ] Resume position
 - [ ] AniList / MAL progress sync, new-episode notifications
 - [ ] Code-signed installers and auto-update · Linux & macOS builds
 
