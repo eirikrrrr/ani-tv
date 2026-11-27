@@ -23,6 +23,8 @@ export type EngineStatus = {
   peers: number;
   error: string | null;
   uploaded: number;
+  /** received from the network this session (stats) */
+  downloaded: number;
   finished: boolean;
 };
 

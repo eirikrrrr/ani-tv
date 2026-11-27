@@ -174,6 +174,9 @@ pub struct Status {
     pub error: Option<String>,
     /// bytes sent to other peers by this torrent (this session)
     pub uploaded: u64,
+    /// bytes received from the network by this torrent (this session; data
+    /// already on disk does not count)
+    pub downloaded: u64,
     /// everything selected is downloaded
     pub finished: bool,
 }
@@ -353,6 +356,7 @@ impl Engine {
             peers: s.live.as_ref().map(|l| l.snapshot.peer_stats.live as usize).unwrap_or(0),
             error: s.error,
             uploaded: s.uploaded_bytes,
+            downloaded: s.live.as_ref().map(|l| l.snapshot.fetched_bytes).unwrap_or(0),
             finished: s.finished,
         })
     }
