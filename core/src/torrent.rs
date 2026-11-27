@@ -172,6 +172,10 @@ pub struct Status {
     pub up_bps: f64,
     pub peers: usize,
     pub error: Option<String>,
+    /// bytes sent to other peers by this torrent (this session)
+    pub uploaded: u64,
+    /// everything selected is downloaded
+    pub finished: bool,
 }
 
 #[derive(Clone)]
@@ -186,6 +190,26 @@ pub struct Engine {
     token: Arc<String>,
 }
 
+/// How the engine uses the network. Limits are KiB/s; None = no limit and
+/// Some(0) = the minimum (1 KiB/s: BitTorrent cannot fully stop uploading
+/// while it downloads, but this is as close as it gets).
+#[derive(Debug, Clone, Default)]
+pub struct EngineOptions {
+    pub down_kib: Option<u32>,
+    pub up_kib: Option<u32>,
+    /// listen for incoming peer connections (needed to seed well; the
+    /// default is outgoing connections only)
+    pub incoming: bool,
+    /// ask the router to forward the listening port (UPnP)
+    pub upnp: bool,
+    /// connections per torrent (librqbit's default is 128)
+    pub peer_limit: Option<usize>,
+}
+
+fn bps(kib: Option<u32>) -> Option<NonZeroU32> {
+    kib.map(|k| NonZeroU32::new(k.max(1).saturating_mul(1024)).expect("non zero"))
+}
+
 fn random_token() -> String {
     let mut b = [0u8; 16];
     getrandom::fill(&mut b).expect("system random");
@@ -194,15 +218,16 @@ fn random_token() -> String {
 
 impl Engine {
     /// Starts the session (downloads go to `dir`) and the local server.
-    /// `upload_kib`: upload limit in KiB/s (None = unlimited).
-    pub async fn start(dir: PathBuf, upload_kib: Option<u32>) -> anyhow::Result<Engine> {
+    pub async fn start(dir: PathBuf, o: EngineOptions) -> anyhow::Result<Engine> {
         std::fs::create_dir_all(&dir)?;
         let opts = SessionOptions {
-            ratelimits: LimitsConfig {
-                upload_bps: upload_kib.and_then(|k| NonZeroU32::new(k.saturating_mul(1024))),
-                download_bps: None,
-            },
+            ratelimits: LimitsConfig { upload_bps: bps(o.up_kib), download_bps: bps(o.down_kib) },
             trackers: OPEN_TRACKERS.iter().filter_map(|t| url::Url::parse(t).ok()).collect(),
+            listen: o.incoming.then(|| librqbit::ListenerOptions {
+                enable_upnp_port_forwarding: o.upnp,
+                ..Default::default()
+            }),
+            peer_limit: o.peer_limit,
             ..Default::default()
         };
         let session = Session::new_with_opts(dir, opts).await?;
@@ -301,6 +326,12 @@ impl Engine {
         })
     }
 
+    /// Changes the speed limits of the running session.
+    pub fn set_limits(&self, down_kib: Option<u32>, up_kib: Option<u32>) {
+        self.session.ratelimits.set_download_bps(bps(down_kib));
+        self.session.ratelimits.set_upload_bps(bps(up_kib));
+    }
+
     fn handle(&self, id: usize) -> anyhow::Result<Arc<ManagedTorrent>> {
         self.session.get(TorrentIdOrHash::Id(id)).ok_or_else(|| anyhow::anyhow!("torrent {id} no encontrado"))
     }
@@ -321,6 +352,8 @@ impl Engine {
             up_bps: s.live.as_ref().map(|l| l.upload_speed.mbps * 1024.0 * 1024.0).unwrap_or(0.0),
             peers: s.live.as_ref().map(|l| l.snapshot.peer_stats.live as usize).unwrap_or(0),
             error: s.error,
+            uploaded: s.uploaded_bytes,
+            finished: s.finished,
         })
     }
 

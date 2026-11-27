@@ -6,7 +6,7 @@
 
 use std::time::{Duration, Instant};
 
-use anime_tv_core::torrent::Engine;
+use anime_tv_core::torrent::{Engine, EngineOptions};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
     let dir = args.next().unwrap_or_else(|| std::env::temp_dir().join("anime-tv-check").display().to_string());
 
     let t0 = Instant::now();
-    let engine = Engine::start(dir.into(), Some(64)).await?;
+    let engine = Engine::start(dir.into(), EngineOptions { up_kib: Some(64), ..Default::default() }).await?;
     let o = engine.open(&source, None, None).await?;
     println!("[{:>5.1}s] opened: {} ({} MiB) -> {}", t0.elapsed().as_secs_f32(), o.file_name, o.file_len >> 20, o.url);
 
