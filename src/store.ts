@@ -34,11 +34,13 @@ export function useStored<T>(key: string, initial: T) {
 export type Saved = Pick<Media, "id" | "title" | "cover" | "banner" | "episodes" | "siteUrl" | "year" | "format"> & {
   /** romaji title, the one most release names use (missing in old saves) */
   romaji?: string;
+  /** cover colour (AniList), for playlist headers; missing in old saves */
+  color?: string | null;
 };
 
 export const toSaved = (m: Media): Saved => ({
   id: m.id, title: m.title, romaji: m.romaji, cover: m.cover, banner: m.banner,
-  episodes: m.episodes, siteUrl: m.siteUrl, year: m.year, format: m.format,
+  episodes: m.episodes, siteUrl: m.siteUrl, year: m.year, format: m.format, color: m.color,
 });
 
 export type Progress = Saved & { episode: number; updatedAt: number };

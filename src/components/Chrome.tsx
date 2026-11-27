@@ -2,13 +2,13 @@
 // "continue watching", and the floating dock used on narrow windows.
 
 import {
-  Compass, Download, Heart, Home, Moon, Play, Puzzle, Search, Settings, Sun, Tv, NotebookPen, BarChart3 } from "lucide-react";
+  Compass, Download, Heart, Home, Moon, Play, Puzzle, Search, Settings, Sun, Tv, NotebookPen, BarChart3, ListVideo } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { DiscordStatus } from "../discord";
 import type { Progress, Theme } from "../store";
 import { t } from "../i18n";
 
-export type ViewKind = "home" | "explore" | "favorites" | "notes" | "stats" | "downloads" | "addons" | "settings" | "detail";
+export type ViewKind = "home" | "explore" | "favorites" | "notes" | "stats" | "downloads" | "addons" | "settings" | "detail" | "playlist";
 
 export function Logo() {
   return (
@@ -98,6 +98,8 @@ export function TopBar(props: {
   onTheme: () => void;
   discord: DiscordStatus;
   onDiscord: () => void;
+  queueCount: number;
+  onQueue: () => void;
 }) {
   const dot =
     props.discord === "on" ? "bg-emerald-500" : props.discord === "error" ? "bg-amber-500" : "bg-muted";
@@ -121,6 +123,18 @@ export function TopBar(props: {
         className="grid size-12 shrink-0 place-items-center rounded-full bg-panel shadow-soft hover:text-accent"
       >
         {props.theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+      </button>
+      <button
+        onClick={props.onQueue}
+        title={t("Cola")}
+        className="relative grid size-12 shrink-0 place-items-center rounded-full bg-panel shadow-soft hover:text-accent"
+      >
+        <ListVideo size={19} />
+        {props.queueCount > 0 && (
+          <span key={props.queueCount} className="heart-pop absolute -top-0.5 -right-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 text-[11px] font-semibold text-white">
+            {props.queueCount}
+          </span>
+        )}
       </button>
       <button
         onClick={props.onDiscord}
@@ -158,6 +172,8 @@ export function Sidebar(props: {
   progress: Progress[];
   onResume: (p: Progress) => void;
   onOpen: (id: number) => void;
+  /** the library section */
+  extra?: ReactNode;
 }) {
   const item = (n: (typeof NAV)[number]) => {
     const on = props.view === n.kind;
@@ -176,7 +192,7 @@ export function Sidebar(props: {
     );
   };
   return (
-    <aside className="flex w-[270px] shrink-0 flex-col rounded-[28px] bg-panel p-5 shadow-soft max-md:hidden">
+    <aside className="flex w-[270px] shrink-0 flex-col overflow-y-auto rounded-[28px] bg-panel p-5 shadow-soft max-md:hidden">
       <div className="px-3 pt-2 pb-6">
         <Logo />
       </div>
@@ -184,7 +200,8 @@ export function Sidebar(props: {
       <div className="mx-4 my-4 h-px bg-gradient-to-r from-transparent via-line to-transparent" />
       <nav className="flex flex-col gap-1">{NAV2.map(item)}</nav>
 
-      <h3 className="mt-7 mb-3 px-3 text-[15px] font-medium">{t("Continuar viendo")}</h3>
+      {props.extra}
+      <h3 className="mt-6 mb-3 px-3 text-[15px] font-medium">{t("Continuar viendo")}</h3>
       <div className="-mr-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-2">
         {props.progress.length === 0 && (
           <p className="px-3 text-sm text-muted">{t("Lo que empieces a ver aparecerá aquí.")}</p>

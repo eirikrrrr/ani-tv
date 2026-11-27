@@ -2,7 +2,7 @@
 // and the "now watching" bar.
 
 import {
-  ArrowLeft, Check, ChevronDown, ChevronUp, Flame, Heart, Info, Pause, Play, SkipBack, SkipForward, Star,
+  ArrowLeft, Check, ChevronDown, ChevronUp, Flame, Heart, Info, Pause, Play, SkipBack, SkipForward, Star, ListPlus,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { availableEpisodes, byId, formatLabel, genreLabel, type Media } from "../anilist";
@@ -262,6 +262,8 @@ export function PosterGrid(props: { items: (Media | Saved)[]; onOpen: (id: numbe
 }
 
 export function Details(props: {
+  /** "add to playlist / queue" for one episode or the whole series */
+  onMenu?: (m: Media, episodes: number[], at: { x: number; y: number }) => void;
   id: number;
   watchedUpTo: number;
   current: number | null;
@@ -335,6 +337,15 @@ export function Details(props: {
                 />
                 {props.isFavorite ? t("En favoritos") : t("Favorito")}
               </button>
+              {props.onMenu && eps > 0 && (
+                <button
+                  onClick={(e) => props.onMenu!(m, Array.from({ length: eps }, (_, k) => k + 1), { x: e.clientX, y: e.clientY })}
+                  title={t("Añadir los episodios a una lista o a la cola")}
+                  className="flex h-12 items-center gap-2 rounded-full bg-white/12 px-5 text-[16px] hover:bg-white/20"
+                >
+                  <ListPlus size={18} /> {t("Añadir a lista")}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -353,6 +364,12 @@ export function Details(props: {
               <button
                 key={ep}
                 onClick={() => props.onWatch(m, ep)}
+                onContextMenu={(e) => {
+                  if (!props.onMenu) return;
+                  e.preventDefault();
+                  props.onMenu(m, [ep], { x: e.clientX, y: e.clientY });
+                }}
+                title={props.onMenu ? t("Clic derecho: añadir a lista o cola") : undefined}
                 style={{ "--i": i } as CSSProperties}
                 className={`stagger flex h-14 items-center justify-between rounded-2xl px-4 text-[15px] transition-colors ${
                   playing ? "bg-accent text-white" : "bg-panel hover:bg-panel-2"

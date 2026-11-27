@@ -835,3 +835,22 @@ html[data-fx="off"] :is(.cinema-poster, .cinema-glow, .uploading, .seek-chevrons
 @media (prefers-reduced-motion: reduce) {
   .bar-grow, .grow-x { animation: none; }
 }
+
+/* ---- library ---------------------------------------------------------------- */
+/* playlist header: the first cover's colour fading into the panel */
+.playlist-head {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pl) 78%, black) 0%, color-mix(in srgb, var(--pl) 38%, var(--atv-panel)) 70%, var(--atv-panel) 100%);
+}
+.queue-panel {
+  animation: atv-slide-left 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.05) both;
+}
+.menu-pop {
+  transform-origin: top left;
+  animation: atv-menu 0.16s ease-out both;
+}
+@keyframes atv-menu {
+  from { opacity: 0; transform: scale(0.96); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .queue-panel, .menu-pop { animation: none; }
+}

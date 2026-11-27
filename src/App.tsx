@@ -11,6 +11,8 @@ import { PlayerSession } from "./components/Player";
 import { DownloadsView } from "./components/Downloads";
 import { NotesView } from "./components/NotesView";
 import { StatsView } from "./components/StatsView";
+import { AddMenu, LibraryNav, PlaylistView, QueuePanel, type EpisodeRef } from "./components/Library";
+import { useLibrary } from "./library";
 import * as player from "./player";
 import { DEFAULT_DOWNLOADS, normalizeDownloads, type DownloadSettings } from "./player";
 import { useSeeding } from "./seeding";
@@ -28,7 +30,7 @@ const CATEGORIES: { id: string; label: string; badge: string; q: ListQuery }[] =
   { id: "movies", label: t("Películas"), badge: t("Película destacada"), q: { format: "MOVIE", sort: ["TRENDING_DESC", "POPULARITY_DESC"] } },
 ];
 
-type View = { kind: ViewKind; id?: number };
+type View = { kind: ViewKind; id?: number; pid?: string };
 
 export default function App() {
   const [theme, setTheme] = useStored<Theme>("theme", "dark");
@@ -207,6 +209,23 @@ export default function App() {
     player.limits(downloads.downloadKib, watching ? downloads.uploadKib : downloads.seed.uploadKib);
   }, [watching, downloads.downloadKib, downloads.uploadKib, downloads.seed.uploadKib]);
 
+  // ---- library: playlists and the queue -----------------------------------
+  const library = useLibrary();
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [menu, setMenu] = useState<{
+    target: EpisodeRef[];
+    at: { x: number; y: number };
+    fromPlaylist?: { id: string; itemId: string } | null;
+    onPlay?: () => void;
+  } | null>(null);
+  /** play items[i], then the rest of the list from the queue */
+  const playItems = (items: { media: Saved; episode: number }[], i: number) => {
+    const [first, ...rest] = items.slice(Math.max(0, i));
+    if (!first) return;
+    library.setUpNext(rest);
+    choose(first.media, first.episode);
+  };
+
   // ---- render -----------------------------------------------------------
   let content: ReactNode;
   switch (view.kind) {
@@ -287,6 +306,33 @@ export default function App() {
         />
       );
       break;
+    case "playlist": {
+      const pl = library.playlists.find((p) => p.id === view.pid);
+      content = pl ? (
+        <PlaylistView
+          playlist={pl}
+          library={library}
+          watchedUpTo={(id) => progressOf(id)?.episode ?? 0}
+          onPlay={playItems}
+          onOpenSeries={openDetail}
+          onMenu={(target, at, itemId) =>
+            setMenu({
+              target,
+              at,
+              fromPlaylist: itemId ? { id: pl.id, itemId } : null,
+              onPlay: () => playItems(pl.items, pl.items.findIndex((x) => x.id === itemId)),
+            })
+          }
+          onDeleted={() => {
+            notify(t("Lista eliminada"));
+            go({ kind: "home" });
+          }}
+        />
+      ) : (
+        <Empty title={t("Esta lista ya no existe")} />
+      );
+      break;
+    }
     case "stats":
       content = <StatsView onOpen={openDetail} notify={notify} />;
       break;
@@ -333,6 +379,7 @@ export default function App() {
           onBack={() => go(back)}
           onWatch={(m, ep) => choose(m, ep)}
           onFavorite={toggleFavorite}
+          onMenu={(m, eps, at) => setMenu({ target: eps.map((episode) => ({ media: toSaved(m), episode })), at })}
         />
       );
       break;
@@ -360,6 +407,8 @@ export default function App() {
         onTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
         discord={dstatus}
         onDiscord={() => go({ kind: "settings" })}
+        queueCount={library.queue.length}
+        onQueue={() => setQueueOpen(true)}
       />
       <div className="flex min-h-0 flex-1 gap-5">
         <Sidebar
@@ -368,9 +417,20 @@ export default function App() {
           progress={progress.slice(0, 8)}
           onResume={(p) => choose(p, p.episode)}
           onOpen={openDetail}
+          extra={
+            <LibraryNav
+              library={library}
+              active={view.kind === "playlist" ? view.pid ?? null : null}
+              onOpen={(pid) => go({ kind: "playlist", pid })}
+              onCreate={() => {
+                const p = library.create(t("Mi lista nº {n}", { n: library.playlists.length + 1 }));
+                go({ kind: "playlist", pid: p.id });
+              }}
+            />
+          }
         />
         <main id="main" className="min-w-0 flex-1 overflow-y-auto pr-1 max-md:pb-24">
-          <div key={`${view.kind}-${view.id ?? ""}`} className="view-enter">
+          <div key={`${view.kind}-${view.id ?? ""}-${view.pid ?? ""}`} className="view-enter">
             {content}
           </div>
           {playing && !session && (
@@ -410,9 +470,15 @@ export default function App() {
           prefs={prefs}
           onPlaying={() => watch(session.target.media, session.target.episode)}
           onNext={
-            !session.target.media.episodes || session.target.episode < session.target.media.episodes
-              ? () => choose(session.target.media, session.target.episode + 1)
-              : null
+            // the queue first (a playlist, "play next"), else the series' next episode
+            library.queue.length > 0
+              ? () => {
+                  const q = library.shift();
+                  if (q) choose(q.media, q.episode);
+                }
+              : !session.target.media.episodes || session.target.episode < session.target.media.episodes
+                ? () => choose(session.target.media, session.target.episode + 1)
+                : null
           }
           onRepick={() => choose(session.target.media, session.target.episode)}
           onOpened={(o) => seeding.claim(o.id)}
@@ -430,6 +496,30 @@ export default function App() {
             setSession(null);
             setNow(null);
           }}
+        />
+      )}
+      {queueOpen && (
+        <QueuePanel
+          library={library}
+          now={session ? session.target : now ? { media: now.media, episode: now.episode } : null}
+          onPlayQueued={(q) => {
+            library.dequeue(q.id);
+            setQueueOpen(false);
+            choose(q.media, q.episode);
+          }}
+          onClose={() => setQueueOpen(false)}
+        />
+      )}
+      {menu && (
+        <AddMenu
+          at={menu.at}
+          target={menu.target}
+          library={library}
+          fromPlaylist={menu.fromPlaylist}
+          onPlay={menu.onPlay}
+          onCreated={() => {}}
+          notify={notify}
+          onClose={() => setMenu(null)}
         />
       )}
       {toast && (
